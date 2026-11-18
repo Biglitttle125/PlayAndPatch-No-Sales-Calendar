@@ -1,34 +1,24 @@
-# PlayAndPatch — No Sales Calendar
+# PlayAndPatch — Custom Calendar
 
-This repository publishes a subscription-ready iCalendar feed based on the official PlayAndPatch calendar, excluding only events whose iCalendar `CATEGORIES` value is `Sale` or `Sales`. All other categories and uncategorized events are retained.
+This repository publishes subscription-ready iCalendar feeds based on the official PlayAndPatch calendar.
 
 ## How it works
 
 - Fetches `https://playandpatch.com/calendar.ics?lang=en`.
-- Removes events categorized exactly as `Sale` or `Sales` (case-insensitive).
-- Publishes the generated feed and landing page to GitHub Pages.
-- GitHub Actions runs every three hours and can also be started manually.
-- The generated calendar is deployed as a Pages artifact; it is not committed back into the source repository.
+- Always excludes events categorized exactly as `Sale` or `Sales` (case-insensitive).
+- Publishes a default all-category feed at `calendar.ics`.
+- Publishes a separate feed for every possible combination of the seven non-Sales categories (128 feeds total).
+- The landing page lets visitors select categories and gives them the matching permanent subscription URL.
+- GitHub Actions refreshes every feed every three hours and can also be started manually.
+- New, changed, and cancelled events are reflected on the next successful refresh.
 
-The job intentionally fails if the source feed has no category metadata or no Sale/Sales events are detected. This prevents a changed source format from silently publishing an unfiltered calendar.
+The seven selectable categories are Game Releases, Showcase, Festival, Convention, Awards, Esports, and Update. The all-category feed also retains uncategorized events, matching the original behaviour. When selecting specific categories, only events assigned to at least one selected category are included.
 
-## One-time GitHub Pages setup
-
-1. Open this repository's **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-3. Open the **Actions** tab and select **Refresh and publish filtered PlayAndPatch calendar**.
-4. Click **Run workflow** on the `main` branch.
-5. Wait for the workflow to complete successfully. If it fails, open the run and inspect the **Fetch and filter calendar** or **Deploy to GitHub Pages** step.
+The job intentionally fails if expected category metadata or Sale/Sales events are missing, preventing an unexpected source-feed format from silently publishing incorrect calendars.
 
 ## Calendar URLs
 
-Once the first workflow run succeeds and Pages finishes deploying:
-
 - Landing page: `https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/`
-- Subscription feed: `https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/calendar.ics`
+- Default all-category feed: `https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/calendar.ics`
 
-## Subscribe, don't import
-
-In Google Calendar, choose **Other calendars → + → From URL** and paste the subscription URL. In Outlook or Apple Calendar, add a calendar by URL/subscription. Do not import the downloaded file if you want future updates: importing is a one-time snapshot, while subscribing keeps checking the feed.
-
-Calendar applications decide how often they refresh subscribed calendars, so updates may not appear immediately even though this feed is refreshed every three hours.
+Use the landing page to select categories and copy the resulting subscription URL. Subscribe by URL in your calendar app; do not import the file if you want future updates. Calendar applications decide how often they refresh subscribed feeds.
