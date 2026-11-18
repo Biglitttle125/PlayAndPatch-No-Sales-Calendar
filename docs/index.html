@@ -176,6 +176,7 @@
     let shownMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     let events = [];
     let currentViewEvents = [];
+    const modalReturnFocus = new Map();
 
     function selectedKeys() { return boxes.filter(box => box.checked).map(box => box.value); }
     function updateFeed() {
@@ -290,8 +291,17 @@
       });
       const first = new Date(year,month,1);
       const calendarStart = addDays(first,-first.getDay());
-      const monthEvents = visibleEvents().map(event => ({event,...eventRange(event)}));
-      currentViewEvents = monthEvents.map(item => item.event).sort((a,b) => new Date(a.start)-new Date(b.start));
+      const monthStart = new Date(year,month,1);
+      const monthEnd = new Date(year,month+1,1);
+      const calendarEnd = addDays(calendarStart,42);
+      const allVisibleEvents = visibleEvents().map(event => ({event,...eventRange(event)}));
+      // Render events that overlap the six-week grid, including adjacent-month days.
+      const monthEvents = allVisibleEvents.filter(item => item.start < calendarEnd && item.endExclusive > calendarStart);
+      // The event-list dialog and count are limited to events that overlap the displayed month.
+      currentViewEvents = allVisibleEvents
+        .filter(item => item.start < monthEnd && item.endExclusive > monthStart)
+        .map(item => item.event)
+        .sort((a,b) => new Date(a.start)-new Date(b.start));
       for (let weekIndex=0; weekIndex<6; weekIndex++) {
         const weekStart = addDays(calendarStart,weekIndex*7);
         const weekEnd = addDays(weekStart,7);
@@ -333,8 +343,8 @@
         week.style.minHeight = Math.max(145,48+laneEnds.length*27+8)+'px';
         calendarGrid.append(week);
       }
-      calendarStatus.textContent = events.length ? monthEvents.length + ' matching events in this view. Click to see the event list.' : 'No event data is available yet.';
-      calendarStatus.disabled = !events.length || monthEvents.length === 0;
+      calendarStatus.textContent = events.length ? currentViewEvents.length + ' matching events in this month. Click to see the event list.' : 'No event data is available yet.';
+      calendarStatus.disabled = !events.length || currentViewEvents.length === 0;
     }
     function formatEventDate(event) {
       const start = parseEventDate(event.start,event.allDay), end = parseEventDate(event.end,event.allDay);
@@ -342,7 +352,10 @@
         const finalDay = dateKey(start) !== dateKey(end) ? new Date(end.getFullYear(),end.getMonth(),end.getDate()-1) : start;
         return dateKey(start) === dateKey(finalDay) ? start.toLocaleDateString(undefined,{dateStyle:'long'}) + ' · All day' : start.toLocaleDateString(undefined,{dateStyle:'long'}) + ' – ' + finalDay.toLocaleDateString(undefined,{dateStyle:'long'}) + ' · All day';
       }
-      return start.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) + ' – ' + end.toLocaleString(undefined,{timeStyle:'short'});
+      const startText = start.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+      const sameDay = dateKey(start) === dateKey(end);
+      const endText = end.toLocaleString(undefined,sameDay ? {timeStyle:'short'} : {dateStyle:'medium',timeStyle:'short'});
+      return startText + ' – ' + endText;
     }
     function showEventList() {
       const content = document.getElementById('eventListContent');
@@ -355,28 +368,73 @@
         meta.textContent = formatEventDate(event) + (labels.length ? ' · ' + labels.join(', ') : '');
         item.append(title,meta);
         if (event.description) { const description = document.createElement('p'); description.textContent = event.description; item.append(description); }
-        item.addEventListener('click',() => { closeEventList(); showEvent(event); });
+        item.addEventListener('click',() => { closeEventList(false); showEvent(event,calendarStatus); });
         content.append(item);
       });
-      document.getElementById('eventListBackdrop').classList.add('open');
+      openModal(document.getElementById('eventListBackdrop'),document.getElementById('closeEventList'),calendarStatus);
     }
-    function closeEventList() { document.getElementById('eventListBackdrop').classList.remove('open'); }
+    function closeEventList(restoreFocus = true) {
+      closeModal(document.getElementById('eventListBackdrop'),restoreFocus);
+    }
     document.getElementById('closeEventList').addEventListener('click',closeEventList);
     document.getElementById('eventListBackdrop').addEventListener('click',event => { if (event.target.id === 'eventListBackdrop') closeEventList(); });
     calendarStatus.addEventListener('click',showEventList);
-    function showEvent(event) {
+    function openModal(modal, focusTarget, returnTarget = document.activeElement) {
+      modalReturnFocus.set(modal,returnTarget);
+      modal.classList.add('open');
+      focusTarget?.focus();
+    }
+    function closeModal(modal, restoreFocus = true) {
+      modal.classList.remove('open');
+      const target = modalReturnFocus.get(modal);
+      modalReturnFocus.delete(modal);
+      if (restoreFocus && target?.isConnected) target.focus();
+    }
+    function showEvent(event, returnTarget = document.activeElement) {
       document.getElementById('eventTitle').textContent = event.title;
       const dateText = formatEventDate(event);
       const labels = event.categories.map(key => categoryInfo.find(category => category[0] === key)?.[1] || key);
       document.getElementById('eventMeta').textContent = dateText + (labels.length ? ' · ' + labels.join(', ') : '');
       document.getElementById('eventDescription').textContent = event.description || 'No additional description is available for this event.';
-      const link = document.getElementById('eventUrl'); link.hidden = !event.url; link.href = event.url || '#';
-      document.getElementById('eventBackdrop').classList.add('open');
+      const link = document.getElementById('eventUrl');
+      const safeUrl = safeHttpUrl(event.url);
+      link.hidden = !safeUrl;
+      if (safeUrl) link.href = safeUrl;
+      else link.removeAttribute('href');
+      openModal(document.getElementById('eventBackdrop'),document.getElementById('closeEvent'),returnTarget);
     }
-    function closeEvent() { document.getElementById('eventBackdrop').classList.remove('open'); }
+    function closeEvent() { closeModal(document.getElementById('eventBackdrop')); }
+    function safeHttpUrl(value) {
+      if (!value) return '';
+      try {
+        const url = new URL(value,location.href);
+        return ['http:','https:'].includes(url.protocol) && /^https?:$/.test(url.protocol) && (url.origin !== location.origin || url.protocol === location.protocol) ? url.href : '';
+      } catch { return ''; }
+    }
     document.getElementById('closeEvent').addEventListener('click',closeEvent);
     document.getElementById('eventBackdrop').addEventListener('click',event => { if (event.target.id === 'eventBackdrop') closeEvent(); });
-    document.addEventListener('keydown',event => { if (event.key === 'Escape') { closeEvent(); closeEventList(); } });
+    document.addEventListener('keydown',event => {
+      const activeModal = [document.getElementById('eventBackdrop'),document.getElementById('eventListBackdrop')]
+        .find(modal => modal.classList.contains('open'));
+      if (!activeModal) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (activeModal.id === 'eventBackdrop') closeEvent();
+        else closeEventList();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusable = [...activeModal.querySelectorAll('button:not([disabled]),a[href]:not([hidden]),[tabindex]:not([tabindex="-1"])')]
+          .filter(element => element.getClientRects().length);
+        if (!focusable.length) { event.preventDefault(); return; }
+        const first = focusable[0], last = focusable[focusable.length-1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    });
     document.getElementById('previousMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1); renderCalendar(); });
     document.getElementById('nextMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()+1,1); renderCalendar(); });
     document.getElementById('goToday').addEventListener('click',() => { shownMonth = new Date(today.getFullYear(),today.getMonth(),1); renderCalendar(); });
