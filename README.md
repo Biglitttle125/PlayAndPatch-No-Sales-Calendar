@@ -78,7 +78,7 @@ The GitHub Actions workflow is configured to run:
 
 - **On a schedule:** every three hours, at 17 minutes past the hour (UTC).
 - **Manually:** through the workflow's `workflow_dispatch` option.
-- **On selected pushes to `main`:** when `refresh_calendar.py`, `requirements.txt`, the workflow file, or `docs/index.html` changes.
+- **On selected pushes to `main`:** when `refresh_calendar.py`, `requirements.txt`, the workflow file, `docs/index.html`, or files under `tests/` change.
 
 Each run installs the Python dependencies, downloads and validates the source ICS feed, generates the filtered ICS files and `calendar-events.json`, and deploys the contents of `docs/` to GitHub Pages.
 
