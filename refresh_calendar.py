@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 import sys
 from pathlib import Path
@@ -93,6 +94,56 @@ def write_feed(calendar, events, selected_keys, filename):
     )
 
 
+def event_json_value(value):
+    """Convert an iCalendar date or datetime into a JSON-safe ISO string."""
+    if value is None:
+        return None
+    value = getattr(value, "dt", value)
+    return value.isoformat()
+
+
+def write_calendar_data(events):
+    """Publish the source events as JSON for the interactive landing-page calendar."""
+    category_map = {
+        "game releases": "releases",
+        "showcase": "showcase",
+        "festival": "festival",
+        "convention": "convention",
+        "awards": "awards",
+        "esports": "esports",
+        "update": "update",
+        "sale": "sale",
+        "sales": "sale",
+    }
+    output = []
+    for event in events:
+        start_value = event_json_value(event.get("DTSTART"))
+        end_value = event_json_value(event.get("DTEND"))
+        if not start_value:
+            continue
+        start_obj = event.get("DTSTART").dt
+        all_day = not hasattr(start_obj, "hour")
+        if not end_value:
+            end_value = start_value
+        names = [name.casefold() for name in category_names(event)]
+        categories = sorted({category_map[name] for name in names if name in category_map})
+        url_value = event.get("URL")
+        description_value = event.get("DESCRIPTION")
+        output.append({
+            "id": str(event.get("UID") or f"{start_value}-{event.get('SUMMARY', '')}"),
+            "title": str(event.get("SUMMARY") or "Untitled event"),
+            "start": start_value,
+            "end": end_value,
+            "allDay": all_day,
+            "categories": categories,
+            "description": str(description_value) if description_value else "",
+            "url": str(url_value) if url_value else "",
+        })
+    target = Path("docs/calendar-events.json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Published interactive calendar data with {len(output)} events.")
+
 def main():
     response = requests.get(
         SOURCE_URL, timeout=45,
@@ -105,6 +156,7 @@ def main():
 
     calendar = Calendar.from_ical(payload)
     events = [item for item in calendar.subcomponents if item.name == "VEVENT"]
+    write_calendar_data(events)
     if not events:
         raise RuntimeError("The source calendar contains no VEVENT entries.")
 
