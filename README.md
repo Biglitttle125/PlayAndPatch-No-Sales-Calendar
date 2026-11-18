@@ -47,15 +47,7 @@ The refresh script checks that category metadata is present and that the expecte
 
 ## Available calendar feeds
 
-The project pre-generates one feed for every **non-empty combination** of the eight categories:
-
-`2^8 - 1 = 255` feeds.
-
-Feed files are published in `docs/calendars/`. Their filenames use the selected category keys joined with hyphens. For example:
-
-- `calendars/releases-showcase.ics` — Game releases and Showcase.
-- `calendars/awards-esports.ics` — Esports and Awards.
-- `calendars/all.ics` — all eight categories, including Sale.
+The refresh script generates 255 ICS feeds, one for every **non-empty combination** of the eight categories (`2^8 - 1 = 255`). Each feed has a permanent URL based on its selected categories. The landing page generates the matching subscription URL for your selection.
 
 ### Landing-page default (recommended)
 
