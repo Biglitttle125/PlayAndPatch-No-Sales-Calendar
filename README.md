@@ -2,6 +2,8 @@
 
 A customizable, automatically refreshed calendar built from the official [PlayAndPatch calendar](https://playandpatch.com/calendar). Choose the event categories you want, then subscribe to a generated iCalendar (ICS) feed in your calendar app. The project also includes an interactive monthly calendar on its landing page.
 
+I created this project because the official PlayAndPatch calendar does not offer a way to customize which events are included in its ICS feed. This version lets you choose the categories you want and generates a calendar subscription that contains only those events.
+
 **Live calendar:** https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/  
 **Original calendar:** https://playandpatch.com/calendar
 
