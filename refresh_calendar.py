@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
 from icalendar import Calendar
@@ -15,7 +16,6 @@ SOURCE_URL = os.environ.get(
     "SOURCE_ICS_URL",
     "https://playandpatch.com/calendar.ics?lang=en",
 )
-OUTPUT = Path("docs/calendar.ics")
 FEEDS_DIR = Path("docs/calendars")
 
 # Keys are used in permanent feed URLs. The final entry supports both
@@ -47,51 +47,54 @@ def category_names(event):
     return result
 
 
-def write_feed(calendar, events, selected_keys, filename):
-    """Write a feed containing events matching at least one selected category."""
+def should_include_event(event, selected_keys):
+    """Return whether an event belongs in a selected category feed."""
     selected = set(selected_keys)
-    sale_aliases = {"sale", "sales"}
     selected_aliases = set()
     for key, _label, aliases in CATEGORY_OPTIONS:
         if key in selected:
             selected_aliases.update(aliases)
 
+    names = {name.strip().casefold() for name in category_names(event)}
+    has_sale = bool(names & {"sale", "sales"})
     non_sale_keys = {key for key, _label, _aliases in CATEGORY_OPTIONS if key != "sale"}
-    # Keep uncategorized events in the default all-non-Sales feed, as before.
     include_uncategorized = selected == non_sale_keys
+
+    # Sale/Sales events are excluded unless Sale is selected, even when
+    # they also carry another selected category.
+    if has_sale and "sale" not in selected:
+        return False
+    if names:
+        return bool(names & selected_aliases)
+    return include_uncategorized
+
+
+def write_feed(calendar, events, selected_keys, filename):
+    """Write a feed containing events matching at least one selected category."""
     output_calendar = copy.deepcopy(calendar)
-
     for event in list(output_calendar.subcomponents):
-        if event.name != "VEVENT":
-            continue
-        names = {name.strip().casefold() for name in category_names(event)}
-        has_sale = bool(names & sale_aliases)
-
-        # Sale/Sales events are excluded unless the Sale checkbox is selected.
-        if has_sale and "sale" not in selected:
-            output_calendar.subcomponents.remove(event)
-        elif names and not (names & selected_aliases):
-            output_calendar.subcomponents.remove(event)
-        elif not names and not include_uncategorized:
+        if event.name == "VEVENT" and not should_include_event(event, selected_keys):
             output_calendar.subcomponents.remove(event)
 
     filename.parent.mkdir(parents=True, exist_ok=True)
     filename.write_bytes(output_calendar.to_ical())
-    return sum(
-        1 for event in events
-        if (
-            (bool(set(name.casefold() for name in category_names(event)) & sale_aliases)
-             and "sale" in selected)
-            or (
-                bool(set(name.casefold() for name in category_names(event)) & selected_aliases)
-                and not (
-                    bool(set(name.casefold() for name in category_names(event)) & sale_aliases)
-                    and "sale" not in selected
-                )
-            )
-            or (not category_names(event) and include_uncategorized)
-        )
-    )
+    return sum(1 for event in events if should_include_event(event, selected_keys))
+
+
+def safe_event_url(value):
+    """Return an absolute HTTP(S) URL, or an empty string for unsafe values."""
+    if value is None:
+        return ""
+    candidate = str(value).strip()
+    try:
+        parsed = urlsplit(candidate)
+        if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        # Accessing .port also validates malformed port syntax.
+        _ = parsed.port
+    except (ValueError, TypeError):
+        return ""
+    return candidate
 
 
 def event_json_value(value):
@@ -127,7 +130,7 @@ def write_calendar_data(events):
             end_value = start_value
         names = [name.casefold() for name in category_names(event)]
         categories = sorted({category_map[name] for name in names if name in category_map})
-        url_value = event.get("URL")
+        url_value = safe_event_url(event.get("URL"))
         description_value = event.get("DESCRIPTION")
         output.append({
             "id": str(event.get("UID") or f"{start_value}-{event.get('SUMMARY', '')}"),
@@ -137,7 +140,7 @@ def write_calendar_data(events):
             "allDay": all_day,
             "categories": categories,
             "description": str(description_value) if description_value else "",
-            "url": str(url_value) if url_value else "",
+            "url": url_value,
         })
     target = Path("docs/calendar-events.json")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -179,10 +182,6 @@ def main():
             "Expected categories missing from source feed: " + ", ".join(sorted(missing))
         )
 
-    # The legacy calendar.ics URL remains the default: all categories except Sale.
-    default_keys = {key for key, _, _ in CATEGORY_OPTIONS if key != "sale"}
-    kept = write_feed(calendar, events, default_keys, OUTPUT)
-
     # Pre-generate every non-empty combination of all eight categories (255 feeds).
     generated = 0
     for mask in range(1, 1 << len(CATEGORY_OPTIONS)):
@@ -194,7 +193,7 @@ def main():
         write_feed(calendar, events, set(chosen), FEEDS_DIR / f"{slug}.ics")
         generated += 1
 
-    print(f"Published default feed with {kept} events; Sale/Sales excluded by default.")
+    print("Sale/Sales events are excluded from feeds unless Sale is selected.")
     print(f"Generated {generated} selectable category feeds.")
     print("Categories found: " + ", ".join(sorted(categories_seen)))
 
