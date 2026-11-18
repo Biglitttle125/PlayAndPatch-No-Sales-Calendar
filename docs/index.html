@@ -3,29 +3,114 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PlayAndPatch — No Sales Calendar</title>
+  <meta name="theme-color" content="#0b1020">
+  <title>PlayAndPatch — Custom Calendar</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1020; color: #eef2ff; }
-    main { width: min(640px, calc(100% - 40px)); padding: 36px; box-sizing: border-box; border: 1px solid #27324b; border-radius: 18px; background: #121a2d; }
-    h1 { margin: 0 0 12px; font-size: clamp(1.6rem, 5vw, 2.2rem); }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 28px 16px; background: #0b1020; color: #eef2ff; }
+    main { width: min(720px, 100%); padding: clamp(24px, 5vw, 38px); border: 1px solid #27324b; border-radius: 18px; background: #121a2d; box-shadow: 0 24px 80px #0005; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.6rem, 5vw, 2.2rem); letter-spacing: -.04em; }
     p { color: #b8c3d9; line-height: 1.65; }
-    a { color: #a5b4fc; }
-    code { display: block; overflow-wrap: anywhere; margin: 18px 0; padding: 14px; border-radius: 9px; background: #080d19; color: #dbeafe; }
-    .note { font-size: .9rem; }
+    .intro { margin-top: 0; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
+    h2 { margin: 0; font-size: 1.05rem; }
+    .actions { display: flex; gap: 8px; }
+    button, .feed-link { border: 1px solid #394765; border-radius: 8px; background: #1b2740; color: #dbeafe; padding: 8px 12px; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; }
+    button:hover, .feed-link:hover { background: #273653; }
+    .categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    label { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid #2b3852; border-radius: 10px; background: #0e1729; color: #e5eaf5; cursor: pointer; transition: border-color .15s, background .15s; }
+    label:has(input:checked) { border-color: #7889e8; background: #202b4a; }
+    input { width: 17px; height: 17px; accent-color: #818cf8; cursor: pointer; }
+    .output { margin-top: 24px; padding: 18px; border: 1px solid #344363; border-radius: 12px; background: #0b1323; }
+    .output strong { display: block; margin-bottom: 9px; }
+    code { display: block; overflow-wrap: anywhere; padding: 13px; border-radius: 8px; background: #060b15; color: #c7d2fe; font-size: .88rem; line-height: 1.5; }
+    .output-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+    .primary { background: #4f46e5; border-color: #6366f1; color: white; }
+    .primary:hover { background: #4338ca; }
+    .note { margin: 16px 0 0; font-size: .88rem; }
+    .count { color: #9daecc; font-size: .85rem; }
+    @media (max-width: 480px) { .categories { grid-template-columns: 1fr; } .section-head { align-items: flex-start; flex-direction: column; } }
   </style>
 </head>
 <body>
   <main>
-    <h1>PlayAndPatch — No Sales Calendar</h1>
-    <p>A live-updating copy of the PlayAndPatch calendar with Sale/Sales events excluded. All other categories are retained.</p>
-    <p><strong>Calendar subscription URL</strong></p>
-    <code id="feed">calendar.ics</code>
-    <p><a href="calendar.ics">Open or download the filtered calendar (.ics)</a></p>
-    <p class="note">The feed is refreshed automatically every three hours. Subscribe to the URL above in your calendar app to receive new and changed events.</p>
+    <h1>PlayAndPatch Calendar</h1>
+    <p class="intro">Choose which event categories you want in your calendar. Sale events are always excluded.</p>
+
+    <div class="section-head">
+      <h2>Choose categories</h2>
+      <div class="actions">
+        <button type="button" id="selectAll">Select all</button>
+        <button type="button" id="clearAll">Clear</button>
+      </div>
+    </div>
+
+    <div class="categories" id="categories">
+      <label><input type="checkbox" value="releases" checked> Game releases</label>
+      <label><input type="checkbox" value="showcase" checked> Showcase</label>
+      <label><input type="checkbox" value="festival" checked> Festival</label>
+      <label><input type="checkbox" value="convention" checked> Convention</label>
+      <label><input type="checkbox" value="awards" checked> Awards</label>
+      <label><input type="checkbox" value="esports" checked> Esports</label>
+      <label><input type="checkbox" value="update" checked> Update</label>
+    </div>
+
+    <div class="output" aria-live="polite">
+      <strong>Your calendar subscription URL</strong>
+      <code id="feedUrl"></code>
+      <div class="output-actions">
+        <button class="primary" type="button" id="copyUrl">Copy subscription URL</button>
+        <a class="feed-link" id="openFeed" href="calendars/all.ics">Open ICS file</a>
+      </div>
+      <p class="count" id="selectionCount"></p>
+    </div>
+
+    <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Each category combination has its own permanent feed, refreshed automatically every three hours. Changes to your selection create a different subscription URL.</p>
   </main>
+
   <script>
-    document.getElementById("feed").textContent = new URL("calendar.ics", location.href).href;
+    const boxes = [...document.querySelectorAll('#categories input[type="checkbox"]')];
+    const feedUrl = document.getElementById('feedUrl');
+    const openFeed = document.getElementById('openFeed');
+    const selectionCount = document.getElementById('selectionCount');
+    const copyButton = document.getElementById('copyUrl');
+
+    function updateFeed() {
+      const selected = boxes.filter(box => box.checked).map(box => box.value);
+      const slug = selected.length === boxes.length ? 'all' : selected.join('-');
+      const url = new URL('calendars/' + slug + '.ics', location.href).href;
+      feedUrl.textContent = url;
+      openFeed.href = 'calendars/' + slug + '.ics';
+      openFeed.setAttribute('aria-disabled', selected.length === 0 ? 'true' : 'false');
+      openFeed.style.opacity = selected.length === 0 ? '.45' : '1';
+      openFeed.style.pointerEvents = selected.length === 0 ? 'none' : 'auto';
+      selectionCount.textContent = selected.length === 0
+        ? 'Select at least one category to create a calendar.'
+        : selected.length + ' of ' + boxes.length + ' categories selected. Sale events are excluded.';
+      copyButton.disabled = selected.length === 0;
+    }
+
+    boxes.forEach(box => box.addEventListener('change', updateFeed));
+    document.getElementById('selectAll').addEventListener('click', () => {
+      boxes.forEach(box => box.checked = true);
+      updateFeed();
+    });
+    document.getElementById('clearAll').addEventListener('click', () => {
+      boxes.forEach(box => box.checked = false);
+      updateFeed();
+    });
+    copyButton.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(feedUrl.textContent);
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => copyButton.textContent = 'Copy subscription URL', 1800);
+      } catch {
+        copyButton.textContent = 'Copy unavailable';
+      }
+    });
+
+    updateFeed();
   </script>
 </body>
 </html>
