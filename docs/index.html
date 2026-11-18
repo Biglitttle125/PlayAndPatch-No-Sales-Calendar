@@ -176,7 +176,6 @@
     let shownMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     let events = [];
     let currentViewEvents = [];
-    let activeFilter = 'all';
 
     function selectedKeys() { return boxes.filter(box => box.checked).map(box => box.value); }
     function updateFeed() {
@@ -217,26 +216,34 @@
       return key >= start && key <= end;
     }
     function renderFilters() {
-      const pills = [['all','All','#4169e1'], ...categoryInfo.map(([key,label,color]) => [key,label,color])];
+      const selected = selectedKeys();
+      const allSelected = selected.length === boxes.length;
+      const pills = [['all','All','#4169e1',allSelected], ...categoryInfo.map(([key,label,color]) => [key,label,color,selected.includes(key)])];
       calendarFilters.innerHTML = '';
-      pills.forEach(([key,label,color]) => {
+      pills.forEach(([key,label,color,isSelected]) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'filter-pill' + (activeFilter === key ? ' active' : '');
+        button.className = 'filter-pill' + (isSelected ? ' active' : '');
+        button.setAttribute('aria-pressed',String(isSelected));
         if (key !== 'all') {
           const dot = document.createElement('span'); dot.className = 'dot'; dot.style.setProperty('--event-color',color); button.append(dot);
         }
         button.append(document.createTextNode(label));
-        button.addEventListener('click', () => { activeFilter = key; renderCalendar(); });
+        button.addEventListener('click', () => {
+          if (key === 'all') {
+            boxes.forEach(box => { box.checked = true; });
+          } else {
+            const checkbox = boxes.find(box => box.value === key);
+            if (checkbox) checkbox.checked = !checkbox.checked;
+          }
+          updateFeed();
+        });
         calendarFilters.append(button);
       });
     }
     function visibleEvents() {
       const selected = selectedKeys();
-      return events.filter(event => {
-        const categoryMatch = activeFilter === 'all' ? event.categories.some(category => selected.includes(category)) : event.categories.includes(activeFilter) && selected.includes(activeFilter);
-        return categoryMatch;
-      });
+      return events.filter(event => event.categories.some(category => selected.includes(category)));
     }
     function localDateFromKey(key) {
       const [y,m,d] = key.slice(0,10).split('-').map(Number);
