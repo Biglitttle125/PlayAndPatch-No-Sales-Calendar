@@ -117,6 +117,11 @@ def main():
 
     expected = set().union(*(aliases for _, _, aliases in CATEGORY_OPTIONS))
     missing = expected - categories_seen
+    # PlayAndPatch currently labels the category "Sale" (singular).
+    # Accept that as satisfying the optional Sale checkbox; "Sales" is
+    # retained only as a compatibility alias for feeds that use that spelling.
+    if "sale" in categories_seen:
+        missing.discard("sales")
     if missing:
         raise RuntimeError(
             "Expected categories missing from source feed: " + ", ".join(sorted(missing))
