@@ -50,13 +50,15 @@
     .dot { width:10px; height:10px; flex:0 0 auto; border-radius:50%; background:var(--event-color); }
     .calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid #253149; border-left:1px solid #253149; border-radius:12px; overflow:hidden; }
     .weekday { min-height:44px; display:grid; place-items:center; border-right:1px solid #253149; border-bottom:1px solid #253149; color:#8197bd; font-size:.82rem; font-weight:600; }
-    .day { min-width:0; min-height:145px; padding:9px 7px; border-right:1px solid #253149; border-bottom:1px solid #253149; background:#111827; }
+    .week-row { grid-column:1 / -1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-height:145px; border-bottom:1px solid #253149; }
+    .day { min-width:0; min-height:145px; padding:9px 7px; border-right:1px solid #253149; background:#111827; }
+    .day:last-of-type { border-right:0; }
     .day.outside { background:#0d1422; }
     .day.today { background:#17213b; }
     .day-number { width:29px; height:29px; display:grid; place-items:center; margin-bottom:7px; border-radius:50%; color:#8fa6cd; font-size:.86rem; }
     .today .day-number { background:#4168ed; color:white; font-weight:700; }
-    .event-chip { display:block; width:calc(100% - 8px); overflow:hidden; margin:4px 4px; padding:5px 7px; border:1px solid color-mix(in srgb,var(--event-color),transparent 45%); border-radius:7px; background:color-mix(in srgb,var(--event-color),transparent 84%); color:var(--event-text); text-align:left; text-overflow:ellipsis; white-space:nowrap; font-size:.75rem; font-weight:650; cursor:pointer; }
-    .event-chip:hover { filter:brightness(1.2); }
+    .event-chip { position:absolute; z-index:2; height:25px; overflow:hidden; padding:4px 7px; border:1px solid color-mix(in srgb,var(--event-color),transparent 45%); border-radius:6px; background:color-mix(in srgb,var(--event-color),transparent 84%); color:var(--event-text); text-align:left; text-overflow:ellipsis; white-space:nowrap; font-size:.75rem; font-weight:650; cursor:pointer; }
+    .event-chip:hover { filter:brightness(1.2); z-index:3; }
     .more-events { color:#93a6c8; font-size:.72rem; padding:3px 5px; }
     .calendar-status { color:#8fa2c4; font-size:.82rem; margin:12px 2px 0; }
     .modal-backdrop { position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:20px; background:#020617bb; }
@@ -220,6 +222,20 @@
         return categoryMatch;
       });
     }
+    function localDateFromKey(key) {
+      const [y,m,d] = key.slice(0,10).split('-').map(Number);
+      return new Date(y,m-1,d);
+    }
+    function addDays(date, amount) {
+      return new Date(date.getFullYear(),date.getMonth(),date.getDate()+amount);
+    }
+    function eventRange(event) {
+      const start = localDateFromKey(event.start);
+      const end = localDateFromKey(event.end);
+      // All-day iCalendar DTEND values are exclusive; timed events include their ending date.
+      const endExclusive = event.allDay ? end : addDays(end,1);
+      return {start,endExclusive};
+    }
     function renderCalendar() {
       renderFilters();
       const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
@@ -229,23 +245,48 @@
         const heading = document.createElement('div'); heading.className = 'weekday'; heading.textContent = day; calendarGrid.append(heading);
       });
       const first = new Date(year,month,1);
-      const start = new Date(year,month,1-first.getDay());
-      const monthEvents = visibleEvents();
-      for (let index=0; index<42; index++) {
-        const day = new Date(start.getFullYear(),start.getMonth(),start.getDate()+index);
-        const cell = document.createElement('div');
-        cell.className = 'day' + (day.getMonth() !== month ? ' outside' : '') + (dateKey(day) === dateKey(today) ? ' today' : '');
-        const number = document.createElement('div'); number.className = 'day-number'; number.textContent = day.getDate(); cell.append(number);
-        const matches = monthEvents.filter(event => eventOccursOn(event,day));
-        matches.slice(0,3).forEach(event => {
-          const info = categoryInfo.find(item => event.categories.includes(item[0])) || categoryInfo[0];
-          const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'event-chip';
+      const calendarStart = addDays(first,-first.getDay());
+      const monthEvents = visibleEvents().map(event => ({event,...eventRange(event)}));
+      for (let weekIndex=0; weekIndex<6; weekIndex++) {
+        const weekStart = addDays(calendarStart,weekIndex*7);
+        const weekEnd = addDays(weekStart,7);
+        const week = document.createElement('div'); week.className = 'week-row';
+        for (let col=0; col<7; col++) {
+          const day = addDays(weekStart,col);
+          const cell = document.createElement('div');
+          cell.className = 'day' + (day.getMonth() !== month ? ' outside' : '') + (dateKey(day) === dateKey(today) ? ' today' : '');
+          const number = document.createElement('div'); number.className = 'day-number'; number.textContent = day.getDate(); cell.append(number);
+          week.append(cell);
+        }
+
+        // Split each multi-day event into a weekly segment, then span the exact day columns.
+        // This mirrors PlayAndPatch: the bar is continuous across adjacent dates and restarts at each week boundary.
+        const segments = monthEvents.map(item => {
+          const segmentStart = item.start > weekStart ? item.start : weekStart;
+          const segmentEnd = item.endExclusive < weekEnd ? item.endExclusive : weekEnd;
+          if (segmentStart >= segmentEnd) return null;
+          const startCol = Math.round((segmentStart-weekStart)/86400000);
+          const span = Math.round((segmentEnd-segmentStart)/86400000);
+          return {...item,startCol,span};
+        }).filter(Boolean).sort((a,b) => a.startCol-b.startCol || b.span-a.span);
+        const laneEnds = [];
+        segments.forEach(segment => {
+          let lane = laneEnds.findIndex(endCol => endCol <= segment.startCol);
+          if (lane < 0) lane = laneEnds.length;
+          laneEnds[lane] = segment.startCol + segment.span;
+          const info = categoryInfo.find(item => segment.event.categories.includes(item[0])) || categoryInfo[0];
+          const chip = document.createElement('button');
+          chip.type = 'button'; chip.className = 'event-chip';
           chip.style.setProperty('--event-color',info[2]); chip.style.setProperty('--event-text',info[3]);
-          chip.textContent = event.title; chip.title = event.title;
-          chip.addEventListener('click',() => showEvent(event)); cell.append(chip);
+          chip.style.left = (segment.startCol/7*100)+'%';
+          chip.style.width = (segment.span/7*100)+'%';
+          chip.style.top = (42+lane*27)+'px';
+          chip.textContent = segment.event.title; chip.title = segment.event.title;
+          chip.addEventListener('click',() => showEvent(segment.event));
+          week.append(chip);
         });
-        if (matches.length > 3) { const more = document.createElement('div'); more.className='more-events'; more.textContent='+'+(matches.length-3)+' more'; cell.append(more); }
-        calendarGrid.append(cell);
+        week.style.minHeight = Math.max(145,48+laneEnds.length*27+8)+'px';
+        calendarGrid.append(week);
       }
       calendarStatus.textContent = events.length ? monthEvents.length + ' matching events in this view. Select an event to see its details.' : 'No event data is available yet.';
     }
