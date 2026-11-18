@@ -6,121 +6,268 @@
   <meta name="theme-color" content="#0b1020">
   <title>PlayAndPatch — Custom Calendar</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 28px 16px; background: #0b1020; color: #eef2ff; }
-    main { width: min(720px, 100%); padding: clamp(24px, 5vw, 38px); border: 1px solid #27324b; border-radius: 18px; background: #121a2d; box-shadow: 0 24px 80px #0005; }
-    h1 { margin: 0 0 10px; font-size: clamp(1.6rem, 5vw, 2.2rem); letter-spacing: -.04em; }
-    p { color: #b8c3d9; line-height: 1.65; }
-    .intro { margin-top: 0; }
-    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
-    h2 { margin: 0; font-size: 1.05rem; }
-    .actions { display: flex; gap: 8px; }
-    button, .feed-link { border: 1px solid #394765; border-radius: 8px; background: #1b2740; color: #dbeafe; padding: 8px 12px; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; }
-    button:hover, .feed-link:hover { background: #273653; }
-    button:disabled { opacity: .4; cursor: not-allowed; }
-    .categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    label { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid #2b3852; border-radius: 10px; background: #0e1729; color: #e5eaf5; cursor: pointer; transition: border-color .15s, background .15s; }
-    label:has(input:checked) { border-color: #7889e8; background: #202b4a; }
-    input { width: 17px; height: 17px; accent-color: #818cf8; cursor: pointer; }
-    .sale-label { border-style: dashed; }
-    .sale-info { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: auto; flex: 0 0 auto; border: 1px solid #8290ad; border-radius: 50%; color: #cbd5e1; font-size: .72rem; font-weight: 700; cursor: help; }
-    .sale-info::after { content: attr(data-tooltip); position: absolute; z-index: 5; right: -4px; bottom: calc(100% + 9px); width: 230px; padding: 10px 12px; border: 1px solid #394765; border-radius: 8px; background: #060b15; color: #e5eaf5; font-size: .8rem; font-weight: 400; line-height: 1.45; box-shadow: 0 8px 24px #0008; opacity: 0; visibility: hidden; transform: translateY(4px); transition: opacity .15s, transform .15s, visibility .15s; pointer-events: none; }
-    .sale-info:hover::after, .sale-info:focus::after { opacity: 1; visibility: visible; transform: translateY(0); }
-    .output { margin-top: 24px; padding: 18px; border: 1px solid #344363; border-radius: 12px; background: #0b1323; }
-    .output strong { display: block; margin-bottom: 9px; }
-    code { display: block; overflow-wrap: anywhere; padding: 13px; border-radius: 8px; background: #060b15; color: #c7d2fe; font-size: .88rem; line-height: 1.5; }
-    .output-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
-    .primary { background: #4f46e5; border-color: #6366f1; color: white; }
-    .primary:hover { background: #4338ca; }
-    .note { margin: 16px 0 0; font-size: .88rem; }
-    .count { color: #9daecc; font-size: .85rem; }
-    @media (max-width: 480px) { .categories { grid-template-columns: 1fr; } .section-head { align-items: flex-start; flex-direction: column; } }
+    :root { color-scheme:dark; font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; background:#0b1020; color:#eef2ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:24px; background:#0b1020; }
+    .layout { width:min(1800px,100%); margin:0 auto; display:grid; grid-template-columns:minmax(300px,370px) minmax(0,1fr); gap:24px; align-items:start; }
+    .settings { padding:26px; border:1px solid #27324b; border-radius:18px; background:#121a2d; box-shadow:0 24px 80px #0003; }
+    h1 { margin:0 0 10px; font-size:clamp(1.65rem,3vw,2rem); letter-spacing:-.04em; }
+    p { color:#b8c3d9; line-height:1.6; }
+    .intro { margin:0 0 10px; }
+    .original-link { display:inline-block; margin:0 0 18px; color:#a5b4fc; font-size:.92rem; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:22px 0 12px; }
+    h2 { margin:0; font-size:1.02rem; }
+    .actions,.output-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    button,.feed-link { border:1px solid #394765; border-radius:8px; background:#1b2740; color:#dbeafe; padding:8px 11px; font:inherit; font-size:.84rem; cursor:pointer; text-decoration:none; }
+    button:hover,.feed-link:hover { background:#273653; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .categories { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .category-label { min-width:0; display:flex; align-items:center; gap:8px; padding:11px 9px; border:1px solid #2b3852; border-radius:10px; background:#0e1729; color:#e5eaf5; font-size:.85rem; cursor:pointer; }
+    .category-label:has(input:checked) { border-color:#7889e8; background:#202b4a; }
+    input[type=checkbox] { width:16px; height:16px; margin:0; accent-color:#818cf8; cursor:pointer; }
+    .sale-label { border-style:dashed; }
+    .sale-info { position:relative; display:inline-grid; place-items:center; width:16px; height:16px; margin-left:auto; flex:0 0 auto; border:1px solid #8290ad; border-radius:50%; color:#cbd5e1; font-size:.7rem; font-weight:700; cursor:help; }
+    .sale-info::after { content:attr(data-tooltip); position:absolute; z-index:8; right:-4px; bottom:calc(100% + 9px); width:230px; padding:10px 12px; border:1px solid #394765; border-radius:8px; background:#060b15; color:#e5eaf5; font-size:.8rem; font-weight:400; line-height:1.45; box-shadow:0 8px 24px #0008; opacity:0; visibility:hidden; pointer-events:none; }
+    .sale-info:hover::after,.sale-info:focus::after { opacity:1; visibility:visible; }
+    .output { margin-top:22px; padding:15px; border:1px solid #344363; border-radius:12px; background:#0b1323; }
+    .output strong { display:block; margin-bottom:9px; font-size:.9rem; }
+    code { display:block; overflow-wrap:anywhere; padding:11px; border-radius:8px; background:#060b15; color:#c7d2fe; font-size:.78rem; line-height:1.5; }
+    .output-actions { margin-top:10px; }
+    .primary { background:#4f46e5; border-color:#6366f1; color:white; }
+    .primary:hover { background:#4338ca; }
+    .note,.count { font-size:.8rem; }
+    .note { margin:14px 0 0; }
+    .count { color:#9daecc; margin:10px 0 0; }
+    .calendar-panel { min-width:0; padding:22px; border:1px solid #27324b; border-radius:18px; background:#0e1526; box-shadow:0 24px 80px #0003; }
+    .calendar-top { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:17px; }
+    .month-nav { display:flex; align-items:center; gap:10px; min-width:0; }
+    .month-nav button { width:42px; height:42px; padding:0; font-size:1.3rem; }
+    .month-title { margin:0; font-size:clamp(1.3rem,2.5vw,1.85rem); white-space:nowrap; letter-spacing:-.03em; }
+    .today-btn { white-space:nowrap; }
+    .filter-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+    .filter-pill { display:flex; align-items:center; gap:8px; border-radius:999px; padding:8px 13px; color:#aebbd4; background:#111a2d; border-color:#25324b; font-size:.88rem; }
+    .filter-pill.active { border-color:#536de7; color:#e8edff; background:#17264a; }
+    .dot { width:10px; height:10px; flex:0 0 auto; border-radius:50%; background:var(--event-color); }
+    .calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid #253149; border-left:1px solid #253149; border-radius:12px; overflow:hidden; }
+    .weekday { min-height:44px; display:grid; place-items:center; border-right:1px solid #253149; border-bottom:1px solid #253149; color:#8197bd; font-size:.82rem; font-weight:600; }
+    .day { min-width:0; min-height:145px; padding:9px 7px; border-right:1px solid #253149; border-bottom:1px solid #253149; background:#111827; }
+    .day.outside { background:#0d1422; }
+    .day.today { background:#17213b; }
+    .day-number { width:29px; height:29px; display:grid; place-items:center; margin-bottom:7px; border-radius:50%; color:#8fa6cd; font-size:.86rem; }
+    .today .day-number { background:#4168ed; color:white; font-weight:700; }
+    .event-chip { display:block; width:100%; overflow:hidden; margin:4px 0; padding:5px 7px; border:1px solid color-mix(in srgb,var(--event-color),transparent 55%); border-radius:7px; background:color-mix(in srgb,var(--event-color),transparent 87%); color:var(--event-text); text-align:left; text-overflow:ellipsis; white-space:nowrap; font-size:.75rem; font-weight:650; cursor:pointer; }
+    .event-chip:hover { filter:brightness(1.2); }
+    .more-events { color:#93a6c8; font-size:.72rem; padding:3px 5px; }
+    .calendar-status { color:#8fa2c4; font-size:.82rem; margin:12px 2px 0; }
+    .modal-backdrop { position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:20px; background:#020617bb; }
+    .modal-backdrop.open { display:grid; }
+    .event-modal { width:min(520px,100%); padding:23px; border:1px solid #394765; border-radius:16px; background:#121a2d; box-shadow:0 24px 80px #0009; }
+    .modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:15px; }
+    .modal-head h3 { margin:0; font-size:1.2rem; }
+    .modal-close { flex:0 0 auto; padding:5px 10px; }
+    .event-meta { color:#9fb0cf; font-size:.88rem; }
+    .event-description { white-space:pre-wrap; color:#d3dced; line-height:1.6; font-size:.92rem; }
+    .event-link { color:#a5b4fc; }
+    @media(max-width:1050px) { .layout { grid-template-columns:320px minmax(0,1fr); gap:15px; } .calendar-panel { padding:15px; } .day { min-height:120px; } }
+    @media(max-width:760px) { body { padding:12px; } .layout { grid-template-columns:1fr; } .settings { padding:20px; } .calendar-panel { padding:12px; } .day { min-height:95px; padding:6px 4px; } .event-chip { font-size:.66rem; padding:4px; } .weekday { min-height:36px; font-size:.72rem; } .calendar-top { align-items:flex-start; flex-wrap:wrap; } .month-nav button { width:35px; height:35px; } }
+    @media(max-width:420px) { .categories { grid-template-columns:1fr 1fr; } .day { min-height:78px; } .day-number { width:24px; height:24px; font-size:.75rem; } .event-chip { font-size:.6rem; } }
   </style>
 </head>
 <body>
-  <main>
-    <h1>PlayAndPatch Calendar</h1>
-    <p class="intro">Choose which event categories you want in your calendar.</p>
-    <p class="intro">Visit the <a href="https://playandpatch.com/calendar" target="_blank" rel="noopener noreferrer" style="color:#a5b4fc;">original PlayAndPatch calendar</a>.</p>
+  <div class="layout">
+    <main class="settings">
+      <h1>PlayAndPatch Calendar</h1>
+      <p class="intro">Choose which event categories you want in your calendar.</p>
+      <a class="original-link" href="https://playandpatch.com/calendar" target="_blank" rel="noopener noreferrer">Visit the original PlayAndPatch calendar ↗</a>
 
-    <div class="section-head">
-      <h2>Choose categories</h2>
-      <div class="actions">
-        <button type="button" id="selectAll">Select all</button>
-        <button type="button" id="clearAll">Clear</button>
+      <div class="section-head">
+        <h2>Choose categories</h2>
+        <div class="actions">
+          <button type="button" id="selectAll">Select all</button>
+          <button type="button" id="clearAll">Clear</button>
+        </div>
       </div>
-    </div>
 
-    <div class="categories" id="categories">
-      <label><input type="checkbox" value="releases" checked> Game releases</label>
-      <label><input type="checkbox" value="showcase" checked> Showcase</label>
-      <label><input type="checkbox" value="festival" checked> Festival</label>
-      <label><input type="checkbox" value="convention" checked> Convention</label>
-      <label><input type="checkbox" value="awards" checked> Awards</label>
-      <label><input type="checkbox" value="esports" checked> Esports</label>
-      <label><input type="checkbox" value="update" checked> Update</label>
-      <label class="sale-label"><input type="checkbox" value="sale"> Sale <span class="sale-info" tabindex="0" role="note" aria-label="Why Sale is off by default" data-tooltip="Sale events can make the calendar look cluttered, so this category is off by default. You can still turn it on whenever you want.">i</span></label>
-    </div>
-
-    <div class="output" aria-live="polite">
-      <strong>Your calendar subscription URL</strong>
-      <code id="feedUrl"></code>
-      <div class="output-actions">
-        <button class="primary" type="button" id="copyUrl">Copy subscription URL</button>
-        <a class="feed-link" id="openFeed" href="calendars/releases-showcase-festival-convention-awards-esports-update.ics">Open ICS file</a>
+      <div class="categories" id="categories">
+        <label class="category-label"><input type="checkbox" value="releases" checked> Game releases</label>
+        <label class="category-label"><input type="checkbox" value="showcase" checked> Showcase</label>
+        <label class="category-label"><input type="checkbox" value="festival" checked> Festival</label>
+        <label class="category-label"><input type="checkbox" value="convention" checked> Convention</label>
+        <label class="category-label"><input type="checkbox" value="awards" checked> Awards</label>
+        <label class="category-label"><input type="checkbox" value="esports" checked> Esports</label>
+        <label class="category-label"><input type="checkbox" value="update" checked> Update</label>
+        <label class="category-label sale-label"><input type="checkbox" value="sale"> Sale <span class="sale-info" tabindex="0" role="note" aria-label="Why Sale is off by default" data-tooltip="Sale events can make the calendar look cluttered, so this category is off by default. You can still turn it on whenever you want.">i</span></label>
       </div>
-      <p class="count" id="selectionCount"></p>
-    </div>
 
-    <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Every category combination has its own permanent feed, refreshed automatically every three hours. Changing your selection gives you a different subscription URL.</p>
-  </main>
+      <div class="output" aria-live="polite">
+        <strong>Your calendar subscription URL</strong>
+        <code id="feedUrl"></code>
+        <div class="output-actions">
+          <button class="primary" type="button" id="copyUrl">Copy subscription URL</button>
+          <a class="feed-link" id="openFeed" href="calendars/releases-showcase-festival-convention-awards-esports-update.ics">Open ICS file</a>
+        </div>
+        <p class="count" id="selectionCount"></p>
+      </div>
+      <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Every category combination has its own permanent feed, refreshed automatically every three hours. Changing your selection gives you a different subscription URL.</p>
+    </main>
+
+    <section class="calendar-panel" aria-label="Interactive event calendar">
+      <div class="calendar-top">
+        <div class="month-nav">
+          <button type="button" id="previousMonth" aria-label="Previous month">‹</button>
+          <h2 class="month-title" id="monthTitle">Loading calendar…</h2>
+          <button type="button" id="nextMonth" aria-label="Next month">›</button>
+        </div>
+        <button type="button" class="today-btn" id="goToday">Today</button>
+      </div>
+      <div class="filter-pills" id="calendarFilters"></div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <p class="calendar-status" id="calendarStatus" role="status">Loading events from PlayAndPatch…</p>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="eventBackdrop" role="dialog" aria-modal="true" aria-labelledby="eventTitle">
+    <article class="event-modal">
+      <div class="modal-head"><h3 id="eventTitle"></h3><button type="button" class="modal-close" id="closeEvent" aria-label="Close">✕</button></div>
+      <p class="event-meta" id="eventMeta"></p>
+      <p class="event-description" id="eventDescription"></p>
+      <a class="event-link" id="eventUrl" target="_blank" rel="noopener noreferrer" hidden>Open event page ↗</a>
+    </article>
+  </div>
 
   <script>
+    const categoryInfo = [
+      ['releases','Game releases','#4169e1','#dbeafe'],
+      ['showcase','Showcase','#9254f5','#eee2ff'],
+      ['sale','Sale','#42b883','#c6ffe6'],
+      ['festival','Festival','#f07800','#ffe1bd'],
+      ['convention','Convention','#40a6e8','#d5f0ff'],
+      ['awards','Awards','#e5a000','#fff0b3'],
+      ['esports','Esports','#e83d5b','#ffd6df'],
+      ['update','Update','#40b5d0','#d4f8ff']
+    ];
     const boxes = [...document.querySelectorAll('#categories input[type="checkbox"]')];
     const feedUrl = document.getElementById('feedUrl');
     const openFeed = document.getElementById('openFeed');
     const selectionCount = document.getElementById('selectionCount');
     const copyButton = document.getElementById('copyUrl');
+    const calendarGrid = document.getElementById('calendarGrid');
+    const monthTitle = document.getElementById('monthTitle');
+    const calendarFilters = document.getElementById('calendarFilters');
+    const calendarStatus = document.getElementById('calendarStatus');
+    const today = new Date();
+    let shownMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    let events = [];
+    let activeFilter = 'all';
 
+    function selectedKeys() { return boxes.filter(box => box.checked).map(box => box.value); }
     function updateFeed() {
-      const selected = boxes.filter(box => box.checked).map(box => box.value);
+      const selected = selectedKeys();
       const slug = selected.length === boxes.length ? 'all' : selected.join('-');
-      const url = selected.length
-        ? new URL('calendars/' + slug + '.ics', location.href).href
-        : '';
+      const url = selected.length ? new URL('calendars/' + slug + '.ics', location.href).href : '';
       feedUrl.textContent = url || 'Select at least one category.';
       openFeed.href = selected.length ? 'calendars/' + slug + '.ics' : '#';
-      openFeed.setAttribute('aria-disabled', selected.length === 0 ? 'true' : 'false');
-      openFeed.style.opacity = selected.length === 0 ? '.45' : '1';
-      openFeed.style.pointerEvents = selected.length === 0 ? 'none' : 'auto';
-      selectionCount.textContent = selected.length === 0
-        ? 'Select at least one category to create a calendar.'
-        : selected.length + ' of ' + boxes.length + ' categories selected. Sale is ' +
-          (selected.includes('sale') ? 'included.' : 'excluded.');
+      openFeed.style.opacity = selected.length ? '1' : '.45';
+      openFeed.style.pointerEvents = selected.length ? 'auto' : 'none';
+      selectionCount.textContent = selected.length === 0 ? 'Select at least one category to create a calendar.' : selected.length + ' of ' + boxes.length + ' categories selected. Sale is ' + (selected.includes('sale') ? 'included.' : 'excluded.');
       copyButton.disabled = selected.length === 0;
+      renderCalendar();
     }
-
     boxes.forEach(box => box.addEventListener('change', updateFeed));
-    document.getElementById('selectAll').addEventListener('click', () => {
-      boxes.forEach(box => box.checked = true);
-      updateFeed();
-    });
-    document.getElementById('clearAll').addEventListener('click', () => {
-      boxes.forEach(box => box.checked = false);
-      updateFeed();
-    });
+    document.getElementById('selectAll').addEventListener('click', () => { boxes.forEach(box => box.checked = true); updateFeed(); });
+    document.getElementById('clearAll').addEventListener('click', () => { boxes.forEach(box => box.checked = false); updateFeed(); });
     copyButton.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(feedUrl.textContent);
-        copyButton.textContent = 'Copied!';
-        setTimeout(() => copyButton.textContent = 'Copy subscription URL', 1800);
-      } catch {
-        copyButton.textContent = 'Copy unavailable';
-      }
+      try { await navigator.clipboard.writeText(feedUrl.textContent); copyButton.textContent = 'Copied!'; setTimeout(() => copyButton.textContent = 'Copy subscription URL', 1800); }
+      catch { copyButton.textContent = 'Copy unavailable'; }
     });
+
+    function dateKey(date) {
+      return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+    }
+    function eventStart(event) { return new Date(event.start); }
+    function eventEndExclusive(event) {
+      const end = new Date(event.end);
+      if (event.allDay) return end;
+      return new Date(end.getFullYear(),end.getMonth(),end.getDate()+1);
+    }
+    function eventOccursOn(event, day) {
+      const key = dateKey(day);
+      const start = event.start.slice(0,10);
+      const end = event.end.slice(0,10);
+      return key >= start && key <= end;
+    }
+    function renderFilters() {
+      const pills = [['all','All','#4169e1'], ...categoryInfo.map(([key,label,color]) => [key,label,color])];
+      calendarFilters.innerHTML = '';
+      pills.forEach(([key,label,color]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'filter-pill' + (activeFilter === key ? ' active' : '');
+        if (key !== 'all') {
+          const dot = document.createElement('span'); dot.className = 'dot'; dot.style.setProperty('--event-color',color); button.append(dot);
+        }
+        button.append(document.createTextNode(label));
+        button.addEventListener('click', () => { activeFilter = key; renderCalendar(); });
+        calendarFilters.append(button);
+      });
+    }
+    function visibleEvents() {
+      const selected = selectedKeys();
+      return events.filter(event => {
+        const categoryMatch = activeFilter === 'all' ? event.categories.some(category => selected.includes(category)) : event.categories.includes(activeFilter) && selected.includes(activeFilter);
+        return categoryMatch;
+      });
+    }
+    function renderCalendar() {
+      renderFilters();
+      const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
+      monthTitle.textContent = shownMonth.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+      calendarGrid.innerHTML = '';
+      ['SUN','MON','TUE','WED','THU','FRI','SAT'].forEach(day => {
+        const heading = document.createElement('div'); heading.className = 'weekday'; heading.textContent = day; calendarGrid.append(heading);
+      });
+      const first = new Date(year,month,1);
+      const start = new Date(year,month,1-first.getDay());
+      const monthEvents = visibleEvents();
+      for (let index=0; index<42; index++) {
+        const day = new Date(start.getFullYear(),start.getMonth(),start.getDate()+index);
+        const cell = document.createElement('div');
+        cell.className = 'day' + (day.getMonth() !== month ? ' outside' : '') + (dateKey(day) === dateKey(today) ? ' today' : '');
+        const number = document.createElement('div'); number.className = 'day-number'; number.textContent = day.getDate(); cell.append(number);
+        const matches = monthEvents.filter(event => eventOccursOn(event,day));
+        matches.slice(0,3).forEach(event => {
+          const info = categoryInfo.find(item => event.categories.includes(item[0])) || categoryInfo[0];
+          const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'event-chip';
+          chip.style.setProperty('--event-color',info[2]); chip.style.setProperty('--event-text',info[3]);
+          chip.textContent = event.title; chip.title = event.title;
+          chip.addEventListener('click',() => showEvent(event)); cell.append(chip);
+        });
+        if (matches.length > 3) { const more = document.createElement('div'); more.className='more-events'; more.textContent='+'+(matches.length-3)+' more'; cell.append(more); }
+        calendarGrid.append(cell);
+      }
+      calendarStatus.textContent = events.length ? monthEvents.length + ' matching events in this view. Select an event to see its details.' : 'No event data is available yet.';
+    }
+    function showEvent(event) {
+      document.getElementById('eventTitle').textContent = event.title;
+      const start = new Date(event.start), end = new Date(event.end);
+      const dateText = event.allDay ? start.toLocaleDateString(undefined,{dateStyle:'long'}) + (dateKey(start)!==dateKey(end) ? ' – ' + new Date(end.getFullYear(),end.getMonth(),end.getDate()-1).toLocaleDateString(undefined,{dateStyle:'long'}) : '') : start.toLocaleString();
+      document.getElementById('eventMeta').textContent = dateText + (event.categories.length ? ' · ' + event.categories.join(', ') : '');
+      document.getElementById('eventDescription').textContent = event.description || 'No additional description is available for this event.';
+      const link = document.getElementById('eventUrl'); link.hidden = !event.url; link.href = event.url || '#';
+      document.getElementById('eventBackdrop').classList.add('open');
+    }
+    function closeEvent() { document.getElementById('eventBackdrop').classList.remove('open'); }
+    document.getElementById('closeEvent').addEventListener('click',closeEvent);
+    document.getElementById('eventBackdrop').addEventListener('click',event => { if (event.target.id === 'eventBackdrop') closeEvent(); });
+    document.addEventListener('keydown',event => { if (event.key === 'Escape') closeEvent(); });
+    document.getElementById('previousMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1); renderCalendar(); });
+    document.getElementById('nextMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()+1,1); renderCalendar(); });
+    document.getElementById('goToday').addEventListener('click',() => { shownMonth = new Date(today.getFullYear(),today.getMonth(),1); renderCalendar(); });
 
     updateFeed();
+    fetch('calendar-events.json').then(response => { if (!response.ok) throw new Error('Could not load event data'); return response.json(); })
+      .then(data => { events = data; renderCalendar(); })
+      .catch(() => { calendarStatus.textContent = 'Could not load events. The calendar data will appear after the next successful refresh.'; });
   </script>
 </body>
 </html>
