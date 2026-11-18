@@ -6,10 +6,9 @@ This repository publishes a subscription-ready iCalendar feed based on the offic
 
 - Fetches `https://playandpatch.com/calendar.ics?lang=en`.
 - Removes events categorized exactly as `Sale` or `Sales` (case-insensitive).
-- Publishes the result to `docs/calendar.ics`.
+- Publishes the generated feed and landing page to GitHub Pages.
 - GitHub Actions runs every three hours and can also be started manually.
-- The same workflow deploys the landing page and feed to GitHub Pages.
-- The generated feed is committed only when its contents change.
+- The generated calendar is deployed as a Pages artifact; it is not committed back into the source repository.
 
 The job intentionally fails if the source feed has no category metadata or no Sale/Sales events are detected. This prevents a changed source format from silently publishing an unfiltered calendar.
 
@@ -17,10 +16,9 @@ The job intentionally fails if the source feed has no category metadata or no Sa
 
 1. Open this repository's **Settings → Pages**.
 2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-3. Save if prompted.
-4. Open the **Actions** tab and select **Refresh and publish filtered PlayAndPatch calendar**.
-5. Click **Run workflow** on the `main` branch.
-6. Wait for the workflow to complete successfully. If it fails, open the run and inspect the **Fetch and filter calendar** step.
+3. Open the **Actions** tab and select **Refresh and publish filtered PlayAndPatch calendar**.
+4. Click **Run workflow** on the `main` branch.
+5. Wait for the workflow to complete successfully. If it fails, open the run and inspect the **Fetch and filter calendar** or **Deploy to GitHub Pages** step.
 
 ## Calendar URLs
 
