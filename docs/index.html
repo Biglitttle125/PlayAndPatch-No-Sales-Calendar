@@ -24,6 +24,9 @@
     label:has(input:checked) { border-color: #7889e8; background: #202b4a; }
     input { width: 17px; height: 17px; accent-color: #818cf8; cursor: pointer; }
     .sale-label { border-style: dashed; }
+    .sale-info { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: auto; flex: 0 0 auto; border: 1px solid #8290ad; border-radius: 50%; color: #cbd5e1; font-size: .72rem; font-weight: 700; cursor: help; }
+    .sale-info::after { content: attr(data-tooltip); position: absolute; z-index: 5; right: -4px; bottom: calc(100% + 9px); width: 230px; padding: 10px 12px; border: 1px solid #394765; border-radius: 8px; background: #060b15; color: #e5eaf5; font-size: .8rem; font-weight: 400; line-height: 1.45; box-shadow: 0 8px 24px #0008; opacity: 0; visibility: hidden; transform: translateY(4px); transition: opacity .15s, transform .15s, visibility .15s; pointer-events: none; }
+    .sale-info:hover::after, .sale-info:focus::after { opacity: 1; visibility: visible; transform: translateY(0); }
     .output { margin-top: 24px; padding: 18px; border: 1px solid #344363; border-radius: 12px; background: #0b1323; }
     .output strong { display: block; margin-bottom: 9px; }
     code { display: block; overflow-wrap: anywhere; padding: 13px; border-radius: 8px; background: #060b15; color: #c7d2fe; font-size: .88rem; line-height: 1.5; }
@@ -56,7 +59,7 @@
       <label><input type="checkbox" value="awards" checked> Awards</label>
       <label><input type="checkbox" value="esports" checked> Esports</label>
       <label><input type="checkbox" value="update" checked> Update</label>
-      <label class="sale-label"><input type="checkbox" value="sale"> Sale</label>
+      <label class="sale-label"><input type="checkbox" value="sale"> Sale <span class="sale-info" tabindex="0" role="note" aria-label="Why Sale is off by default" data-tooltip="Sale events can make the calendar look cluttered, so this category is off by default. You can still turn it on whenever you want.">i</span></label>
     </div>
 
     <div class="output" aria-live="polite">
