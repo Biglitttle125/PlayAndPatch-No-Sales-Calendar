@@ -84,21 +84,31 @@ The three-hour schedule describes when this project republishes its feeds. It do
 
 ## Repository structure
 
+The repository contains the source files and landing page. The generated calendar files are created during each workflow run and included in the GitHub Pages deployment; they are not committed to the repository.
+
+**Files committed to the repository:**
+
 ```text
 .
 ├── .github/
 │   └── workflows/
 │       └── refresh-calendar.yml   # Scheduled refresh and GitHub Pages deployment
 ├── docs/
-│   ├── index.html                  # Landing page, category selector and interactive calendar
-│   ├── calendar-events.json        # Interactive calendar data (generated)
-│   └── calendars/                  # 255 generated category-combination feeds
+│   └── index.html                  # Landing page, category selector and interactive calendar
 ├── refresh_calendar.py             # Fetches, validates, filters and publishes calendar data
 ├── requirements.txt                # Python dependencies
 └── README.md
 ```
 
-Generated files in `docs/` are recreated by the workflow; the source of the filtering and publishing logic is `refresh_calendar.py`.
+**Generated in the GitHub Pages deployment:**
+
+```text
+docs/
+├── calendar-events.json            # Interactive calendar data
+└── calendars/                      # 255 category-combination ICS feeds
+```
+
+The workflow recreates these generated files on every run, then deploys the complete `docs/` output to GitHub Pages.
 
 ## Run the refresh locally
 
