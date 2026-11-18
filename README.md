@@ -55,7 +55,7 @@ The project pre-generates one feed for every **non-empty combination** of the ei
 Feed files are published in `docs/calendars/`. Their filenames use the selected category keys joined with hyphens. For example:
 
 - `calendars/releases-showcase.ics` — Game releases and Showcase.
-- `calendars/esports-awards.ics` — Esports and Awards.
+- `calendars/awards-esports.ics` — Esports and Awards.
 - `calendars/all.ics` — all eight categories, including Sale.
 
 The original default feed URL is also kept for compatibility:
