@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlayAndPatch — No Sales Calendar</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1020; color: #eef2ff; }
+    main { width: min(640px, calc(100% - 40px)); padding: 36px; box-sizing: border-box; border: 1px solid #27324b; border-radius: 18px; background: #121a2d; }
+    h1 { margin: 0 0 12px; font-size: clamp(1.6rem, 5vw, 2.2rem); }
+    p { color: #b8c3d9; line-height: 1.65; }
+    a { color: #a5b4fc; }
+    code { display: block; overflow-wrap: anywhere; margin: 18px 0; padding: 14px; border-radius: 9px; background: #080d19; color: #dbeafe; }
+    .note { font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PlayAndPatch — No Sales Calendar</h1>
+    <p>A live-updating copy of the PlayAndPatch calendar with Sale/Sales events excluded. All other categories are retained.</p>
+    <p><strong>Calendar subscription URL</strong></p>
+    <code id="feed">calendar.ics</code>
+    <p><a href="calendar.ics">Open or download the filtered calendar (.ics)</a></p>
+    <p class="note">The feed is refreshed automatically every three hours. Subscribe to the URL above in your calendar app to receive new and changed events.</p>
+  </main>
+  <script>
+    document.getElementById("feed").textContent = new URL("calendar.ics", location.href).href;
+  </script>
+</body>
+</html>
