@@ -186,7 +186,7 @@
       openFeed.href = selected.length ? 'calendars/' + slug + '.ics' : '#';
       openFeed.style.opacity = selected.length ? '1' : '.45';
       openFeed.style.pointerEvents = selected.length ? 'auto' : 'none';
-      selectionCount.textContent = selected.length === 0 ? 'Select at least one category to create a calendar.' : selected.length + ' of ' + boxes.length + ' categories selected. Sale is ' + (selected.includes('sale') ? 'included.' : 'excluded.');
+      selectionCount.textContent = selected.length === 0 ? 'Select at least one category to create a calendar.' : selected.length + ' of ' + boxes.length + ' categories selected.';
       copyButton.disabled = selected.length === 0;
       renderCalendar();
     }
