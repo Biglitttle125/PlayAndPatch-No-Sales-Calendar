@@ -60,7 +60,15 @@
     .event-chip { position:absolute; z-index:2; height:25px; overflow:hidden; padding:4px 7px; border:1px solid color-mix(in srgb,var(--event-color),transparent 45%); border-radius:6px; background:color-mix(in srgb,var(--event-color),transparent 84%); color:var(--event-text); text-align:left; text-overflow:ellipsis; white-space:nowrap; font-size:.75rem; font-weight:650; cursor:pointer; }
     .event-chip:hover { filter:brightness(1.2); z-index:3; }
     .more-events { color:#93a6c8; font-size:.72rem; padding:3px 5px; }
-    .calendar-status { color:#8fa2c4; font-size:.82rem; margin:12px 2px 0; }
+    .calendar-status { display:inline-block; padding:0; border:0; border-radius:0; background:transparent; color:#8fa2c4; font-size:.82rem; margin:12px 2px 0; text-align:left; cursor:pointer; }
+    .calendar-status:hover { background:transparent; color:#c7d2fe; text-decoration:underline; }
+    .calendar-status:focus-visible { outline:2px solid #818cf8; outline-offset:4px; }
+    .event-list-modal { width:min(680px,100%); max-height:min(80vh,760px); display:flex; flex-direction:column; }
+    .event-list-content { overflow:auto; margin-top:14px; display:grid; gap:10px; }
+    .event-list-item { width:100%; padding:13px 14px; text-align:left; background:#0b1323; border-color:#2d3b58; }
+    .event-list-item strong { display:block; color:#eef2ff; font-size:.94rem; margin-bottom:5px; }
+    .event-list-item span { display:block; color:#9fb0cf; font-size:.82rem; line-height:1.5; }
+    .event-list-item p { margin:7px 0 0; color:#c4cee0; font-size:.84rem; line-height:1.5; }
     .modal-backdrop { position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:20px; background:#020617bb; }
     .modal-backdrop.open { display:grid; }
     .event-modal { width:min(520px,100%); padding:23px; border:1px solid #394765; border-radius:16px; background:#121a2d; box-shadow:0 24px 80px #0009; }
@@ -124,8 +132,15 @@
       </div>
       <div class="filter-pills" id="calendarFilters"></div>
       <div class="calendar-grid" id="calendarGrid"></div>
-      <p class="calendar-status" id="calendarStatus" role="status">Loading events from PlayAndPatch…</p>
+      <button class="calendar-status" id="calendarStatus" type="button" aria-haspopup="dialog" aria-controls="eventListBackdrop">Loading events from PlayAndPatch…</button>
     </section>
+  </div>
+
+  <div class="modal-backdrop" id="eventListBackdrop" role="dialog" aria-modal="true" aria-labelledby="eventListTitle">
+    <article class="event-modal event-list-modal">
+      <div class="modal-head"><h3 id="eventListTitle">Events in this view</h3><button type="button" class="modal-close" id="closeEventList" aria-label="Close">✕</button></div>
+      <div class="event-list-content" id="eventListContent"></div>
+    </article>
   </div>
 
   <div class="modal-backdrop" id="eventBackdrop" role="dialog" aria-modal="true" aria-labelledby="eventTitle">
@@ -160,6 +175,7 @@
     const today = new Date();
     let shownMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     let events = [];
+    let currentViewEvents = [];
     let activeFilter = 'all';
 
     function selectedKeys() { return boxes.filter(box => box.checked).map(box => box.value); }
@@ -268,6 +284,7 @@
       const first = new Date(year,month,1);
       const calendarStart = addDays(first,-first.getDay());
       const monthEvents = visibleEvents().map(event => ({event,...eventRange(event)}));
+      currentViewEvents = monthEvents.map(item => item.event).sort((a,b) => new Date(a.start)-new Date(b.start));
       for (let weekIndex=0; weekIndex<6; weekIndex++) {
         const weekStart = addDays(calendarStart,weekIndex*7);
         const weekEnd = addDays(weekStart,7);
@@ -309,13 +326,42 @@
         week.style.minHeight = Math.max(145,48+laneEnds.length*27+8)+'px';
         calendarGrid.append(week);
       }
-      calendarStatus.textContent = events.length ? monthEvents.length + ' matching events in this view. Select an event to see its details.' : 'No event data is available yet.';
+      calendarStatus.textContent = events.length ? monthEvents.length + ' matching events in this view. Click to see the event list.' : 'No event data is available yet.';
+      calendarStatus.disabled = !events.length || monthEvents.length === 0;
     }
+    function formatEventDate(event) {
+      const start = parseEventDate(event.start,event.allDay), end = parseEventDate(event.end,event.allDay);
+      if (event.allDay) {
+        const finalDay = dateKey(start) !== dateKey(end) ? new Date(end.getFullYear(),end.getMonth(),end.getDate()-1) : start;
+        return dateKey(start) === dateKey(finalDay) ? start.toLocaleDateString(undefined,{dateStyle:'long'}) + ' · All day' : start.toLocaleDateString(undefined,{dateStyle:'long'}) + ' – ' + finalDay.toLocaleDateString(undefined,{dateStyle:'long'}) + ' · All day';
+      }
+      return start.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) + ' – ' + end.toLocaleString(undefined,{timeStyle:'short'});
+    }
+    function showEventList() {
+      const content = document.getElementById('eventListContent');
+      content.innerHTML = '';
+      currentViewEvents.forEach(event => {
+        const item = document.createElement('button'); item.type = 'button'; item.className = 'event-list-item';
+        const title = document.createElement('strong'); title.textContent = event.title;
+        const meta = document.createElement('span');
+        const labels = event.categories.map(key => categoryInfo.find(category => category[0] === key)?.[1] || key);
+        meta.textContent = formatEventDate(event) + (labels.length ? ' · ' + labels.join(', ') : '');
+        item.append(title,meta);
+        if (event.description) { const description = document.createElement('p'); description.textContent = event.description; item.append(description); }
+        item.addEventListener('click',() => { closeEventList(); showEvent(event); });
+        content.append(item);
+      });
+      document.getElementById('eventListBackdrop').classList.add('open');
+    }
+    function closeEventList() { document.getElementById('eventListBackdrop').classList.remove('open'); }
+    document.getElementById('closeEventList').addEventListener('click',closeEventList);
+    document.getElementById('eventListBackdrop').addEventListener('click',event => { if (event.target.id === 'eventListBackdrop') closeEventList(); });
+    calendarStatus.addEventListener('click',showEventList);
     function showEvent(event) {
       document.getElementById('eventTitle').textContent = event.title;
-      const start = parseEventDate(event.start,event.allDay), end = parseEventDate(event.end,event.allDay);
-      const dateText = event.allDay ? start.toLocaleDateString(undefined,{dateStyle:'long'}) + (dateKey(start)!==dateKey(end) ? ' – ' + new Date(end.getFullYear(),end.getMonth(),end.getDate()-1).toLocaleDateString(undefined,{dateStyle:'long'}) : '') : start.toLocaleString();
-      document.getElementById('eventMeta').textContent = dateText + (event.categories.length ? ' · ' + event.categories.join(', ') : '');
+      const dateText = formatEventDate(event);
+      const labels = event.categories.map(key => categoryInfo.find(category => category[0] === key)?.[1] || key);
+      document.getElementById('eventMeta').textContent = dateText + (labels.length ? ' · ' + labels.join(', ') : '');
       document.getElementById('eventDescription').textContent = event.description || 'No additional description is available for this event.';
       const link = document.getElementById('eventUrl'); link.hidden = !event.url; link.href = event.url || '#';
       document.getElementById('eventBackdrop').classList.add('open');
@@ -323,7 +369,7 @@
     function closeEvent() { document.getElementById('eventBackdrop').classList.remove('open'); }
     document.getElementById('closeEvent').addEventListener('click',closeEvent);
     document.getElementById('eventBackdrop').addEventListener('click',event => { if (event.target.id === 'eventBackdrop') closeEvent(); });
-    document.addEventListener('keydown',event => { if (event.key === 'Escape') closeEvent(); });
+    document.addEventListener('keydown',event => { if (event.key === 'Escape') { closeEvent(); closeEventList(); } });
     document.getElementById('previousMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1); renderCalendar(); });
     document.getElementById('nextMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()+1,1); renderCalendar(); });
     document.getElementById('goToday').addEventListener('click',() => { shownMonth = new Date(today.getFullYear(),today.getMonth(),1); renderCalendar(); });
