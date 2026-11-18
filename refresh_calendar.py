@@ -90,6 +90,8 @@ def safe_event_url(value):
         parsed = urlsplit(candidate)
         if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
             return ""
+        if parsed.username is not None or parsed.password is not None:
+            return ""
         # Accessing .port also validates malformed port syntax.
         _ = parsed.port
     except (ValueError, TypeError):
