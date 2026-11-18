@@ -230,10 +230,31 @@
       return new Date(date.getFullYear(),date.getMonth(),date.getDate()+amount);
     }
     function eventRange(event) {
-      const start = localDateFromKey(event.start);
-      const end = localDateFromKey(event.end);
-      // All-day iCalendar DTEND values are exclusive; timed events include their ending date.
-      const endExclusive = event.allDay ? end : addDays(end,1);
+      if (event.allDay) {
+        // All-day iCalendar DTEND is already exclusive.
+        return {
+          start: localDateFromKey(event.start),
+          endExclusive: localDateFromKey(event.end)
+        };
+      }
+
+      // Timed events must be converted into the viewer's local timezone before
+      // extracting calendar dates. DTEND is exclusive: if it lands exactly at
+      // midnight, do not include the following day as another event day.
+      const startDateTime = new Date(event.start);
+      const endDateTime = new Date(event.end);
+      const start = new Date(startDateTime.getFullYear(),startDateTime.getMonth(),startDateTime.getDate());
+      const endDay = new Date(endDateTime.getFullYear(),endDateTime.getMonth(),endDateTime.getDate());
+      const endsAtMidnight = endDateTime.getHours() === 0 &&
+        endDateTime.getMinutes() === 0 &&
+        endDateTime.getSeconds() === 0 &&
+        endDateTime.getMilliseconds() === 0;
+      let endExclusive;
+      if (endDateTime <= startDateTime) {
+        endExclusive = addDays(start,1);
+      } else {
+        endExclusive = endsAtMidnight ? endDay : addDays(endDay,1);
+      }
       return {start,endExclusive};
     }
     function renderCalendar() {
