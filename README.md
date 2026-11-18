@@ -133,6 +133,5 @@ The script writes the generated calendar files into `docs/`. It can also use a d
 
 - [Custom calendar landing page](https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/)
 - [Landing-page default ICS feed (all seven non-Sale categories)](https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/calendars/releases-showcase-festival-convention-awards-esports-update.ics)
-- [Legacy compatibility ICS feed (also retains uncategorized events)](https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar/calendar.ics)
 - [Original PlayAndPatch calendar](https://playandpatch.com/calendar)
 - [GitHub repository](https://github.com/Biglitttle125/PlayAndPatch-No-Sales-Calendar)
