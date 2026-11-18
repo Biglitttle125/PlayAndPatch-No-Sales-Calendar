@@ -18,10 +18,12 @@
     .actions { display: flex; gap: 8px; }
     button, .feed-link { border: 1px solid #394765; border-radius: 8px; background: #1b2740; color: #dbeafe; padding: 8px 12px; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; }
     button:hover, .feed-link:hover { background: #273653; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
     .categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     label { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid #2b3852; border-radius: 10px; background: #0e1729; color: #e5eaf5; cursor: pointer; transition: border-color .15s, background .15s; }
     label:has(input:checked) { border-color: #7889e8; background: #202b4a; }
     input { width: 17px; height: 17px; accent-color: #818cf8; cursor: pointer; }
+    .sale-label { border-style: dashed; }
     .output { margin-top: 24px; padding: 18px; border: 1px solid #344363; border-radius: 12px; background: #0b1323; }
     .output strong { display: block; margin-bottom: 9px; }
     code { display: block; overflow-wrap: anywhere; padding: 13px; border-radius: 8px; background: #060b15; color: #c7d2fe; font-size: .88rem; line-height: 1.5; }
@@ -36,7 +38,7 @@
 <body>
   <main>
     <h1>PlayAndPatch Calendar</h1>
-    <p class="intro">Choose which event categories you want in your calendar. Sale events are always excluded.</p>
+    <p class="intro">Choose which event categories you want in your calendar. Sale is turned off by default, but you can include it whenever you want.</p>
 
     <div class="section-head">
       <h2>Choose categories</h2>
@@ -54,6 +56,7 @@
       <label><input type="checkbox" value="awards" checked> Awards</label>
       <label><input type="checkbox" value="esports" checked> Esports</label>
       <label><input type="checkbox" value="update" checked> Update</label>
+      <label class="sale-label"><input type="checkbox" value="sale"> Sale</label>
     </div>
 
     <div class="output" aria-live="polite">
@@ -61,12 +64,12 @@
       <code id="feedUrl"></code>
       <div class="output-actions">
         <button class="primary" type="button" id="copyUrl">Copy subscription URL</button>
-        <a class="feed-link" id="openFeed" href="calendars/all.ics">Open ICS file</a>
+        <a class="feed-link" id="openFeed" href="calendars/releases-showcase-festival-convention-awards-esports-update.ics">Open ICS file</a>
       </div>
       <p class="count" id="selectionCount"></p>
     </div>
 
-    <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Each category combination has its own permanent feed, refreshed automatically every three hours. Changes to your selection create a different subscription URL.</p>
+    <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Every category combination has its own permanent feed, refreshed automatically every three hours. Changing your selection gives you a different subscription URL.</p>
   </main>
 
   <script>
@@ -79,15 +82,18 @@
     function updateFeed() {
       const selected = boxes.filter(box => box.checked).map(box => box.value);
       const slug = selected.length === boxes.length ? 'all' : selected.join('-');
-      const url = new URL('calendars/' + slug + '.ics', location.href).href;
-      feedUrl.textContent = url;
-      openFeed.href = 'calendars/' + slug + '.ics';
+      const url = selected.length
+        ? new URL('calendars/' + slug + '.ics', location.href).href
+        : '';
+      feedUrl.textContent = url || 'Select at least one category.';
+      openFeed.href = selected.length ? 'calendars/' + slug + '.ics' : '#';
       openFeed.setAttribute('aria-disabled', selected.length === 0 ? 'true' : 'false');
       openFeed.style.opacity = selected.length === 0 ? '.45' : '1';
       openFeed.style.pointerEvents = selected.length === 0 ? 'none' : 'auto';
       selectionCount.textContent = selected.length === 0
         ? 'Select at least one category to create a calendar.'
-        : selected.length + ' of ' + boxes.length + ' categories selected. Sale events are excluded.';
+        : selected.length + ' of ' + boxes.length + ' categories selected. Sale is ' +
+          (selected.includes('sale') ? 'included.' : 'excluded.');
       copyButton.disabled = selected.length === 0;
     }
 
