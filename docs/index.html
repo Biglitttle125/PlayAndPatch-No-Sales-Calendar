@@ -184,16 +184,18 @@
     function dateKey(date) {
       return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
     }
-    function eventStart(event) { return new Date(event.start); }
-    function eventEndExclusive(event) {
-      const end = new Date(event.end);
-      if (event.allDay) return end;
-      return new Date(end.getFullYear(),end.getMonth(),end.getDate()+1);
+    function parseEventDate(value, allDay) {
+      if (allDay) {
+        const [year,month,day] = value.slice(0,10).split('-').map(Number);
+        return new Date(year,month-1,day);
+      }
+      return new Date(value);
     }
     function eventOccursOn(event, day) {
       const key = dateKey(day);
       const start = event.start.slice(0,10);
       const end = event.end.slice(0,10);
+      if (event.allDay && start !== end) return key >= start && key < end;
       return key >= start && key <= end;
     }
     function renderFilters() {
@@ -249,7 +251,7 @@
     }
     function showEvent(event) {
       document.getElementById('eventTitle').textContent = event.title;
-      const start = new Date(event.start), end = new Date(event.end);
+      const start = parseEventDate(event.start,event.allDay), end = parseEventDate(event.end,event.allDay);
       const dateText = event.allDay ? start.toLocaleDateString(undefined,{dateStyle:'long'}) + (dateKey(start)!==dateKey(end) ? ' – ' + new Date(end.getFullYear(),end.getMonth(),end.getDate()-1).toLocaleDateString(undefined,{dateStyle:'long'}) : '') : start.toLocaleString();
       document.getElementById('eventMeta').textContent = dateText + (event.categories.length ? ' · ' + event.categories.join(', ') : '');
       document.getElementById('eventDescription').textContent = event.description || 'No additional description is available for this event.';
