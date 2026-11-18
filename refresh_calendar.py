@@ -16,17 +16,18 @@ SOURCE_URL = os.environ.get(
 )
 OUTPUT = Path("docs/calendar.ics")
 FEEDS_DIR = Path("docs/calendars")
-EXCLUDED_CATEGORIES = {"sale", "sales"}
 
-# Stable URL keys and the category names used by PlayAndPatch.
+# Keys are used in permanent feed URLs. The final entry supports both
+# spellings that may be used by the source calendar.
 CATEGORY_OPTIONS = [
-    ("releases", "Game Releases"),
-    ("showcase", "Showcase"),
-    ("festival", "Festival"),
-    ("convention", "Convention"),
-    ("awards", "Awards"),
-    ("esports", "Esports"),
-    ("update", "Update"),
+    ("releases", "Game Releases", {"game releases"}),
+    ("showcase", "Showcase", {"showcase"}),
+    ("festival", "Festival", {"festival"}),
+    ("convention", "Convention", {"convention"}),
+    ("awards", "Awards", {"awards"}),
+    ("esports", "Esports", {"esports"}),
+    ("update", "Update", {"update"}),
+    ("sale", "Sale", {"sale", "sales"}),
 ]
 
 
@@ -45,29 +46,50 @@ def category_names(event):
     return result
 
 
-def write_feed(calendar, events, selected_categories, filename):
-    """Write a feed containing selected categories; all-category feed keeps uncategorized events."""
-    selected = {name.casefold() for name in selected_categories}
-    all_selected = len(selected) == len(CATEGORY_OPTIONS)
+def write_feed(calendar, events, selected_keys, filename):
+    """Write a feed containing events matching at least one selected category."""
+    selected = set(selected_keys)
+    sale_aliases = {"sale", "sales"}
+    selected_aliases = set()
+    for key, _label, aliases in CATEGORY_OPTIONS:
+        if key in selected:
+            selected_aliases.update(aliases)
+
+    non_sale_keys = {key for key, _label, _aliases in CATEGORY_OPTIONS if key != "sale"}
+    # Keep uncategorized events in the default all-non-Sales feed, as before.
+    include_uncategorized = selected == non_sale_keys
     output_calendar = copy.deepcopy(calendar)
 
     for event in list(output_calendar.subcomponents):
         if event.name != "VEVENT":
             continue
         names = {name.strip().casefold() for name in category_names(event)}
-        if names & EXCLUDED_CATEGORIES:
+        has_sale = bool(names & sale_aliases)
+
+        # Sale/Sales events are excluded unless the Sale checkbox is selected.
+        if has_sale and "sale" not in selected:
             output_calendar.subcomponents.remove(event)
-        elif not all_selected and not (names & selected):
+        elif names and not (names & selected_aliases):
+            output_calendar.subcomponents.remove(event)
+        elif not names and not include_uncategorized:
             output_calendar.subcomponents.remove(event)
 
     filename.parent.mkdir(parents=True, exist_ok=True)
     filename.write_bytes(output_calendar.to_ical())
     return sum(
         1 for event in events
-        if (category_names(event) and
-            not ({name.casefold() for name in category_names(event)} & EXCLUDED_CATEGORIES) and
-            (all_selected or bool({name.casefold() for name in category_names(event)} & selected)))
-        or (all_selected and not category_names(event))
+        if (
+            (bool(set(name.casefold() for name in category_names(event)) & sale_aliases)
+             and "sale" in selected)
+            or (
+                bool(set(name.casefold() for name in category_names(event)) & selected_aliases)
+                and not (
+                    bool(set(name.casefold() for name in category_names(event)) & sale_aliases)
+                    and "sale" not in selected
+                )
+            )
+            or (not category_names(event) and include_uncategorized)
+        )
     )
 
 
@@ -87,45 +109,35 @@ def main():
         raise RuntimeError("The source calendar contains no VEVENT entries.")
 
     categories_seen = set()
-    excluded = []
     for event in events:
-        categories = category_names(event)
-        categories_seen.update(category.strip().casefold() for category in categories)
-        if any(category.strip().casefold() in EXCLUDED_CATEGORIES for category in categories):
-            excluded.append(event)
+        categories_seen.update(category.strip().casefold() for category in category_names(event))
 
     if not categories_seen:
-        raise RuntimeError("No CATEGORIES metadata was found; refusing to publish an unfiltered calendar.")
-    if not excluded:
-        raise RuntimeError("No Sale/Sales events were detected. Check the source feed before publishing.")
+        raise RuntimeError("No CATEGORIES metadata was found; refusing to publish category feeds.")
 
-    available = {name.casefold() for _, name in CATEGORY_OPTIONS}
-    missing = available - categories_seen
+    expected = set().union(*(aliases for _, _, aliases in CATEGORY_OPTIONS))
+    missing = expected - categories_seen
     if missing:
         raise RuntimeError(
             "Expected categories missing from source feed: " + ", ".join(sorted(missing))
         )
 
-    # The original calendar.ics remains the default: everything except Sale/Sales.
-    all_names = [name for _, name in CATEGORY_OPTIONS]
-    kept = write_feed(calendar, events, all_names, OUTPUT)
+    # The legacy calendar.ics URL remains the default: all categories except Sale.
+    default_keys = {key for key, _, _ in CATEGORY_OPTIONS if key != "sale"}
+    kept = write_feed(calendar, events, default_keys, OUTPUT)
 
-    # Pre-generate all 2^7 combinations so each selected set has a stable
-    # subscription URL that can keep updating on GitHub Pages.
+    # Pre-generate every non-empty combination of all eight categories (255 feeds).
     generated = 0
     for mask in range(1, 1 << len(CATEGORY_OPTIONS)):
         chosen = [
-            (key, name)
-            for index, (key, name) in enumerate(CATEGORY_OPTIONS)
+            key for index, (key, _, _) in enumerate(CATEGORY_OPTIONS)
             if mask & (1 << index)
         ]
-        keys = [key for key, _ in chosen]
-        names = [name for _, name in chosen]
-        slug = "all" if len(chosen) == len(CATEGORY_OPTIONS) else "-".join(keys)
-        write_feed(calendar, events, names, FEEDS_DIR / f"{slug}.ics")
+        slug = "all" if len(chosen) == len(CATEGORY_OPTIONS) else "-".join(chosen)
+        write_feed(calendar, events, set(chosen), FEEDS_DIR / f"{slug}.ics")
         generated += 1
 
-    print(f"Published default feed with {kept} events; excluded {len(excluded)} Sale/Sales events.")
+    print(f"Published default feed with {kept} events; Sale/Sales excluded by default.")
     print(f"Generated {generated} selectable category feeds.")
     print("Categories found: " + ", ".join(sorted(categories_seen)))
 
