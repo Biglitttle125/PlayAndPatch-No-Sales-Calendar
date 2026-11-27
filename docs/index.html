@@ -38,6 +38,26 @@
     .note,.count { font-size:.8rem; }
     .note { margin:14px 0 0; }
     .count { color:#9daecc; margin:10px 0 0; }
+    .change-panel { margin-top:16px; border:1px solid #344363; border-radius:12px; background:#0b1323; overflow:hidden; }
+    .change-panel summary { padding:14px 15px; color:#e5eaf5; font-size:.9rem; font-weight:650; cursor:pointer; }
+    .change-panel summary::marker { color:#9daecc; }
+    .change-content { display:grid; gap:12px; padding:0 15px 15px; }
+    .change-update { padding-top:12px; border-top:1px solid #263550; }
+    .change-update:first-child { border-top:0; padding-top:0; }
+    .change-update-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; color:#9daecc; font-size:.76rem; margin-bottom:9px; }
+    .change-counts { display:flex; flex-wrap:wrap; gap:6px; }
+    .change-count { padding:3px 7px; border-radius:6px; background:#1b2740; font-size:.72rem; }
+    .change-count.added { color:#86efac; }
+    .change-count.modified { color:#fcd34d; }
+    .change-count.removed { color:#fca5a5; }
+    .change-item { padding:9px 10px; margin-top:7px; border:1px solid #293752; border-radius:8px; background:#101a2c; }
+    .change-item-title { display:flex; align-items:flex-start; gap:7px; color:#eef2ff; font-size:.82rem; font-weight:650; }
+    .change-kind { flex:0 0 auto; font-size:.7rem; font-weight:700; }
+    .change-kind.added { color:#86efac; }
+    .change-kind.modified { color:#fcd34d; }
+    .change-kind.removed { color:#fca5a5; }
+    .change-detail { margin:5px 0 0; color:#aebbd4; font-size:.76rem; line-height:1.5; overflow-wrap:anywhere; }
+    .change-empty { margin:0; color:#9daecc; font-size:.82rem; }
     .calendar-panel { min-width:0; padding:22px; border:1px solid #27324b; border-radius:18px; background:#0e1526; box-shadow:0 24px 80px #0003; }
     .calendar-top { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:17px; }
     .month-nav { display:flex; align-items:center; gap:10px; min-width:0; }
@@ -118,7 +138,14 @@
         </div>
         <p class="count" id="selectionCount"></p>
       </div>
-      <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Every category combination has its own permanent feed, refreshed automatically every three hours. Changing your selection gives you a different subscription URL.</p>
+      <p class="note">Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to receive updates. Every category combination has its own permanent feed, refreshed automatically every eight hours. Changing your selection gives you a different subscription URL.</p>
+
+      <details class="change-panel" id="changePanel">
+        <summary id="changeSummary">Changes since last update · Loading…</summary>
+        <div class="change-content" id="changeContent" aria-live="polite">
+          <p class="change-empty">Loading update history…</p>
+        </div>
+      </details>
     </main>
 
     <section class="calendar-panel" aria-label="Interactive event calendar">
@@ -439,6 +466,77 @@
     document.getElementById('previousMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()-1,1); renderCalendar(); });
     document.getElementById('nextMonth').addEventListener('click',() => { shownMonth = new Date(shownMonth.getFullYear(),shownMonth.getMonth()+1,1); renderCalendar(); });
     document.getElementById('goToday').addEventListener('click',() => { shownMonth = new Date(today.getFullYear(),today.getMonth(),1); renderCalendar(); });
+
+    function displayChangeValue(value) {
+      if (Array.isArray(value)) return value.length ? value.join(', ') : 'None';
+      if (value === null || value === undefined || value === '') return 'Empty';
+      if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+      return String(value);
+    }
+    function addChangeItem(container, kind, title, details = []) {
+      const item = document.createElement('div'); item.className = 'change-item';
+      const heading = document.createElement('div'); heading.className = 'change-item-title';
+      const marker = document.createElement('span'); marker.className = 'change-kind ' + kind;
+      marker.textContent = kind === 'added' ? 'NEW' : kind === 'modified' ? 'CHANGED' : 'REMOVED';
+      const name = document.createElement('span'); name.textContent = title || 'Untitled event';
+      heading.append(marker,name); item.append(heading);
+      details.forEach(detail => {
+        const line = document.createElement('p'); line.className = 'change-detail';
+        line.textContent = detail; item.append(line);
+      });
+      container.append(item);
+    }
+    function renderChangeHistory(data) {
+      const summary = document.getElementById('changeSummary');
+      const content = document.getElementById('changeContent');
+      content.replaceChildren();
+      const lastChecked = data.lastCheckedAt ? new Date(data.lastCheckedAt).toLocaleString() : 'Unknown';
+      const history = Array.isArray(data.history) ? data.history : [];
+      const total = history.reduce((sum, update) => sum + Object.values(update.counts || {}).reduce((a,b) => a + Number(b || 0),0),0);
+      summary.textContent = 'Changes since last update' + (total ? ' · ' + total + ' recorded' : ' · No changes');
+      const checked = document.createElement('p'); checked.className = 'change-empty';
+      checked.textContent = 'Last checked: ' + lastChecked + (data.baselineAvailable ? '' : ' · Initial comparison baseline established');
+      content.append(checked);
+      if (!history.length) {
+        const empty = document.createElement('p'); empty.className = 'change-empty';
+        empty.textContent = data.baselineAvailable ? 'No event changes have been detected yet.' : 'Change tracking starts with the next successful refresh.';
+        content.append(empty); return;
+      }
+      history.forEach(update => {
+        const section = document.createElement('section'); section.className = 'change-update';
+        const head = document.createElement('div'); head.className = 'change-update-head';
+        const date = document.createElement('span'); date.textContent = new Date(update.updatedAt).toLocaleString();
+        const counts = document.createElement('span'); counts.className = 'change-counts';
+        [['added','New'],['modified','Changed'],['removed','Removed']].forEach(([key,label]) => {
+          const count = Number(update.counts?.[key] || 0);
+          if (!count) return;
+          const badge = document.createElement('span'); badge.className = 'change-count ' + key;
+          badge.textContent = count + ' ' + label; counts.append(badge);
+        });
+        head.append(date,counts); section.append(head);
+        (update.added || []).forEach(entry => addChangeItem(section,'added',entry.event?.title,[
+          formatChangeEventDate(entry.event)
+        ]));
+        (update.modified || []).forEach(entry => addChangeItem(section,'modified',entry.event?.title,
+          (entry.changes || []).map(change => change.field + ': ' + displayChangeValue(change.old) + ' → ' + displayChangeValue(change.new))
+        ));
+        (update.removed || []).forEach(entry => addChangeItem(section,'removed',entry.event?.title,[
+          formatChangeEventDate(entry.event)
+        ]));
+        content.append(section);
+      });
+    }
+    function formatChangeEventDate(event) {
+      if (!event) return 'Event details unavailable';
+      return event.start + (event.end && event.end !== event.start ? ' – ' + event.end : '');
+    }
+    fetch('calendar-changes.json').then(response => {
+      if (!response.ok) throw new Error('Could not load change history');
+      return response.json();
+    }).then(renderChangeHistory).catch(() => {
+      document.getElementById('changeSummary').textContent = 'Changes since last update';
+      document.getElementById('changeContent').textContent = 'Change history is not available yet. It will appear after the next successful refresh.';
+    });
 
     updateFeed();
     fetch('calendar-events.json').then(response => { if (!response.ok) throw new Error('Could not load event data'); return response.json(); })
