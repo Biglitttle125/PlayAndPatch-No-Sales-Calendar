@@ -473,12 +473,15 @@
       if (typeof value === 'boolean') return value ? 'Yes' : 'No';
       return String(value);
     }
-    function addChangeItem(container, kind, title, details = []) {
+    function addChangeItem(container, kind, title, details = [], url = '') {
       const item = document.createElement('div'); item.className = 'change-item';
       const heading = document.createElement('div'); heading.className = 'change-item-title';
       const marker = document.createElement('span'); marker.className = 'change-kind ' + kind;
       marker.textContent = kind === 'added' ? 'NEW' : kind === 'modified' ? 'CHANGED' : 'REMOVED';
-      const name = document.createElement('span'); name.textContent = title || 'Untitled event';
+      const safeUrl = safeHttpUrl(url);
+      const name = document.createElement(safeUrl ? 'a' : 'span');
+      name.textContent = title || 'Untitled event';
+      if (safeUrl) { name.href = safeUrl; name.target = '_blank'; name.rel = 'noopener noreferrer'; name.className = 'event-link'; }
       heading.append(marker,name); item.append(heading);
       details.forEach(detail => {
         const line = document.createElement('p'); line.className = 'change-detail';
@@ -516,13 +519,14 @@
         head.append(date,counts); section.append(head);
         (update.added || []).forEach(entry => addChangeItem(section,'added',entry.event?.title,[
           formatChangeEventDate(entry.event)
-        ]));
+        ], entry.event?.url));
         (update.modified || []).forEach(entry => addChangeItem(section,'modified',entry.event?.title,
-          (entry.changes || []).map(change => change.field + ': ' + displayChangeValue(change.old) + ' → ' + displayChangeValue(change.new))
+          (entry.changes || []).map(change => change.field + ': ' + displayChangeValue(change.old) + ' → ' + displayChangeValue(change.new)),
+          entry.event?.url
         ));
         (update.removed || []).forEach(entry => addChangeItem(section,'removed',entry.event?.title,[
           formatChangeEventDate(entry.event)
-        ]));
+        ], entry.event?.url));
         content.append(section);
       });
     }
