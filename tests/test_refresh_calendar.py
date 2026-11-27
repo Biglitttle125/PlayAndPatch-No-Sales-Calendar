@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import date
 from pathlib import Path
 
@@ -133,7 +134,8 @@ class EventUrlTests(unittest.TestCase):
             original_cwd = Path.cwd()
             try:
                 os.chdir(directory)
-                refresh.write_calendar_data(events)
+                with patch.object(refresh, "fetch_published_json", side_effect=[None, None]):
+                    refresh.write_calendar_data(events)
                 data = json.loads(Path("docs/calendar-events.json").read_text(encoding="utf-8"))
             finally:
                 os.chdir(original_cwd)
