@@ -64,6 +64,51 @@ class FeedFilteringTests(unittest.TestCase):
             self.assertEqual(len(list(output.glob("*.ics"))), 255)
 
 
+
+class EventChangeDetectionTests(unittest.TestCase):
+    def sample(self, uid, title="Event", start="2026-12-01", categories=None):
+        return {
+            "id": uid, "title": title, "start": start, "end": "2026-12-02",
+            "allDay": True, "categories": categories or ["showcase"],
+            "description": "", "url": "https://example.com/event",
+        }
+
+    def test_detects_added_removed_and_modified_events(self):
+        previous = [
+            self.sample("unchanged"),
+            self.sample("changed", title="Old title"),
+            self.sample("removed"),
+        ]
+        current = [
+            self.sample("unchanged"),
+            self.sample("changed", title="New title"),
+            self.sample("added"),
+        ]
+        changes = refresh.event_changes(previous, current)
+        self.assertEqual([item["event"]["id"] for item in changes["added"]], ["added"])
+        self.assertEqual([item["event"]["id"] for item in changes["removed"]], ["removed"])
+        self.assertEqual(changes["modified"][0]["event"]["id"], "changed")
+        self.assertEqual(changes["modified"][0]["changes"][0]["field"], "Title")
+
+    def test_preserves_history_when_next_refresh_has_no_changes(self):
+        old = self.sample("same")
+        history = {"history": [{"updatedAt": "2026-11-27T00:00:00Z", "counts": {
+            "added": 1, "modified": 0, "removed": 0
+        }, "added": [{"event": self.sample("previously-added")}], "modified": [], "removed": []}]}
+        result = refresh.write_change_history([old], [old], history)
+        self.assertEqual(len(result["history"]), 1)
+        self.assertEqual(result["history"][0]["counts"]["added"], 1)
+
+    def test_limits_history_to_ten_entries(self):
+        history = {"history": [{"updatedAt": str(index)} for index in range(12)]}
+        result = refresh.write_change_history([], [], history)
+        self.assertEqual(len(result["history"]), 10)
+
+    def test_first_snapshot_establishes_baseline_without_false_additions(self):
+        result = refresh.write_change_history(None, [self.sample("first")], None)
+        self.assertFalse(result["baselineAvailable"])
+        self.assertEqual(result["history"], [])
+
 class EventUrlTests(unittest.TestCase):
     def test_accepts_http_and_https_urls(self):
         self.assertEqual(refresh.safe_event_url("https://example.com/event"), "https://example.com/event")
