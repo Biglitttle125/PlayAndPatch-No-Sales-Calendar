@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -17,6 +18,8 @@ SOURCE_URL = os.environ.get(
     "https://playandpatch.com/calendar.ics?lang=en",
 )
 FEEDS_DIR = Path("docs/calendars")
+PUBLISHED_BASE_URL = "https://biglitttle125.github.io/PlayAndPatch-No-Sales-Calendar"
+CHANGE_HISTORY_LIMIT = 10
 
 # Keys are used in permanent feed URLs. The final entry supports both
 # spellings that may be used by the source calendar.
@@ -107,8 +110,8 @@ def event_json_value(value):
     return value.isoformat()
 
 
-def write_calendar_data(events):
-    """Publish the source events as JSON for the interactive landing-page calendar."""
+def build_calendar_data(events):
+    """Convert source events into the JSON format used by the landing page."""
     category_map = {
         "game releases": "releases",
         "showcase": "showcase",
@@ -144,10 +147,88 @@ def write_calendar_data(events):
             "description": str(description_value) if description_value else "",
             "url": url_value,
         })
+    return output
+
+
+def fetch_published_json(filename):
+    """Read the last successfully deployed JSON file; only a 404 means no baseline."""
+    url = f"{PUBLISHED_BASE_URL}/{filename}?refresh={int(datetime.now(timezone.utc).timestamp())}"
+    response = requests.get(
+        url, timeout=20,
+        headers={"User-Agent": "PlayAndPatchCalendarFilter/1.0", "Cache-Control": "no-cache"},
+    )
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    return response.json()
+
+
+def event_changes(previous, current):
+    """Compare event snapshots by UID and report additions, removals and field changes."""
+    old_by_id = {event["id"]: event for event in previous or []}
+    new_by_id = {event["id"]: event for event in current}
+    added = [{"event": new_by_id[key]} for key in sorted(new_by_id.keys() - old_by_id.keys())]
+    removed = [{"event": old_by_id[key]} for key in sorted(old_by_id.keys() - new_by_id.keys())]
+    fields = [
+        ("title", "Title"), ("start", "Start"), ("end", "End"),
+        ("allDay", "All-day setting"), ("categories", "Categories"),
+        ("description", "Description"), ("url", "Event link"),
+    ]
+    modified = []
+    for key in sorted(old_by_id.keys() & new_by_id.keys()):
+        old_event, new_event = old_by_id[key], new_by_id[key]
+        differences = [
+            {"field": label, "old": old_event.get(field), "new": new_event.get(field)}
+            for field, label in fields
+            if old_event.get(field) != new_event.get(field)
+        ]
+        if differences:
+            modified.append({"event": new_event, "changes": differences})
+    return {"added": added, "modified": modified, "removed": removed}
+
+
+def write_change_history(previous_events, current_events, previous_history):
+    """Keep the latest ten update summaries, including across refreshes with no changes."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    history = list((previous_history or {}).get("history", []))
+    changes = event_changes(previous_events, current_events) if previous_events is not None else {
+        "added": [], "modified": [], "removed": []
+    }
+    total = sum(len(changes[key]) for key in ("added", "modified", "removed"))
+    if total:
+        history.insert(0, {
+            "updatedAt": now,
+            "counts": {key: len(changes[key]) for key in ("added", "modified", "removed")},
+            **changes,
+        })
+    history = history[:CHANGE_HISTORY_LIMIT]
+    return {
+        "lastCheckedAt": now,
+        "baselineAvailable": previous_events is not None,
+        "history": history,
+    }
+
+
+def write_calendar_data(events):
+    """Publish the current event snapshot and a rolling history of detected changes."""
+    current_events = build_calendar_data(events)
+    previous_events = fetch_published_json("calendar-events.json")
+    previous_history = fetch_published_json("calendar-changes.json")
+    changes = write_change_history(previous_events, current_events, previous_history)
+
     target = Path("docs/calendar-events.json")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Published interactive calendar data with {len(output)} events.")
+    target.write_text(json.dumps(current_events, ensure_ascii=False, indent=2), encoding="utf-8")
+    (target.parent / "calendar-changes.json").write_text(
+        json.dumps(changes, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"Published interactive calendar data with {len(current_events)} events.")
+    if not changes["baselineAvailable"]:
+        print("No previous published event snapshot was available; change tracking baseline established.")
+    else:
+        latest = changes["history"][0] if changes["history"] else None
+        print("Detected changes in this refresh: " + str(sum(latest["counts"].values()) if latest else 0))
+
 
 def main():
     response = requests.get(
